@@ -1,4 +1,4 @@
- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -68,15 +68,34 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// Nomes exatos conforme estão no seu repositório GitHub
-const playerSprite = new Image(); 
-playerSprite.src = "avatar-reference.jpg";
+// Processador de Imagem Transparente
+let processedPlayerSprite = null;
+const rawPlayerSprite = new Image(); 
+rawPlayerSprite.src = "avatar-reference.jpg";
 
-const enemySprite = new Image();  
-enemySprite.src = "enemies.png";
+rawPlayerSprite.onload = () => {
+  // Cria um canvas oculto para remover o fundo branco automaticamente
+  const offCanvas = document.createElement("canvas");
+  offCanvas.width = rawPlayerSprite.width;
+  offCanvas.height = rawPlayerSprite.height;
+  const offCtx = offCanvas.getContext("2d");
+  offCtx.drawImage(rawPlayerSprite, 0, 0);
 
-const tileSprite = new Image();
-tileSprite.src = "tiles.png";
+  const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+  const data = imgData.data;
+
+  // Transforma pixels brancos/claros em transparentes
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
+      data[i+3] = 0; // Transparência total
+    }
+  }
+  offCtx.putImageData(imgData, 0, 0);
+  processedPlayerSprite = offCanvas;
+};
+
+const enemySprite = new Image(); enemySprite.src = "enemies.png";
+const tileSprite = new Image(); tileSprite.src = "tiles.png";
 
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
@@ -168,25 +187,6 @@ const levels = [
     crystals: [
       {x: 250, y: 90, caught: false}, {x: 360, y: 80, caught: false}, {x: 600, y: 70, caught: false},
       {x: 850, y: 60, caught: false}, {x: 1100, y: 70, caught: false}, {x: 1530, y: 60, caught: false}
-    ]
-  },
-  {
-    name: "Tempestade Branca",
-    width: 2600,
-    spawn: { x: 20, y: 100 },
-    goal: { x: 2460, y: 94, w: 32, h: 40 },
-    platforms: [
-      [0,132,160,48],[190,112,75,12],[295,132,72,12],[400,96,90,12],
-      [530,120,72,12],[650,86,110,12],[805,116,65,12],[920,94,115,12]
-    ],
-    waters: [
-      [160,150,30,30],[265,150,30,30],[367,150,33,30],[490,150,40,30]
-    ],
-    animals: [
-      { type: "polar", x: 425, y: 68, w: 26, h: 28, min: 400, max: 470, dir: 1 }
-    ],
-    crystals: [
-      {x: 200, y: 80, caught: false}, {x: 320, y: 90, caught: false}, {x: 670, y: 60, caught: false}
     ]
   }
 ];
@@ -280,13 +280,8 @@ function update() {
 
   if (goal && player.x < goal.x + goal.w && player.x + player.w > goal.x &&
       player.y < goal.y + goal.h && player.y + player.h > goal.y) {
-    levelIndex++;
-    if (levelIndex < levels.length) {
-      loadLevel(levelIndex);
-    } else {
-      state = "win";
-      showPanel("🏆 VOCÊ VENCEU!", `<p>Pontuação final: ${score}</p><button onclick="restartGame()">Jogar Novamente</button>`);
-    }
+    state = "win";
+    showPanel("🏆 VOCÊ VENCEU!", `<p>Pontuação final: ${score}</p><button onclick="restartGame()">Jogar Novamente</button>`);
   }
 
   cameraX = player.x - W / 3;
@@ -309,22 +304,26 @@ function restartGame() {
   lives = 3; score = 0; levelIndex = 0; updateHUD(); state = "play"; loadLevel(0);
 }
 
-// -------------------------------------------------------------
-// RENDERIZADORES DAS IMAGENS DO GITHUB
-// -------------------------------------------------------------
-
+// RENDERIZAÇÃO DO PERSONAGEM (SEM O TEXTO/NÚMEROS)
 function drawMarcelo() {
-  if (playerSprite.complete && playerSprite.naturalWidth !== 0) {
+  if (processedPlayerSprite) {
     const cols = 4;
     const col = player.animIndex % cols;
     const row = Math.floor(player.animIndex / cols);
-    const frameW = playerSprite.width / 4;
-    const frameH = playerSprite.height / 4;
+
+    const frameW = processedPlayerSprite.width / 4;
+    const frameH = processedPlayerSprite.height / 4;
+
+    // Margens para ignorar os textos do topo/baixo da imagem original
+    const cropX = col * frameW + (frameW * 0.15);
+    const cropY = row * frameH + (frameH * 0.22);
+    const cropW = frameW * 0.7;
+    const cropH = frameH * 0.65;
 
     ctx.save();
     ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
     if (player.facing === -1) ctx.scale(-1, 1);
-    ctx.drawImage(playerSprite, col * frameW, row * frameH, frameW, frameH, -player.w/2-4, -player.h/2-4, player.w+8, player.h+8);
+    ctx.drawImage(processedPlayerSprite, cropX, cropY, cropW, cropH, -player.w/2-2, -player.h/2-2, player.w+4, player.h+4);
     ctx.restore();
   } else {
     ctx.fillStyle = "#2a9d8f";
