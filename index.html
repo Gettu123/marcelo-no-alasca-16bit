@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
@@ -68,12 +68,15 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// Carregar Imagens com proteção contra erro
+// Nomes exatos conforme estão no seu repositório GitHub
 const playerSprite = new Image(); 
 playerSprite.src = "avatar-reference.jpg";
 
 const enemySprite = new Image();  
-enemySprite.src = "enemies.jpg";
+enemySprite.src = "enemies.png";
+
+const tileSprite = new Image();
+tileSprite.src = "tiles.png";
 
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
@@ -307,7 +310,7 @@ function restartGame() {
 }
 
 // -------------------------------------------------------------
-// RENDERIZADORES ROBUSTOS (COM SUPORTE A IMAGENS OU DESENHO 2D)
+// RENDERIZADORES DAS IMAGENS DO GITHUB
 // -------------------------------------------------------------
 
 function drawMarcelo() {
@@ -324,57 +327,57 @@ function drawMarcelo() {
     ctx.drawImage(playerSprite, col * frameW, row * frameH, frameW, frameH, -player.w/2-4, -player.h/2-4, player.w+8, player.h+8);
     ctx.restore();
   } else {
-    // Fallback Marcelo
     ctx.fillStyle = "#2a9d8f";
     ctx.fillRect(player.x, player.y, player.w, player.h);
   }
 }
 
 function drawPlatform(p) {
-  ctx.fillStyle = "#a8e0f0";
-  ctx.fillRect(p.x, p.y, p.w, p.h);
-  ctx.fillStyle = "#6cb0d8";
-  ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(p.x - 1, p.y, p.w + 2, 4);
+  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
+    ctx.drawImage(tileSprite, 0, 0, tileSprite.width/2, tileSprite.height/2, p.x, p.y, p.w, p.h);
+  } else {
+    ctx.fillStyle = "#a8e0f0"; ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = "#6cb0d8"; ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(p.x - 1, p.y, p.w + 2, 4);
+  }
 }
 
 function drawWater(w) {
-  ctx.fillStyle = "#1b4965";
-  ctx.fillRect(w.x, w.y, w.w, w.h);
-  ctx.fillStyle = "#62b6cb";
-  for (let i = 0; i < w.w; i += 6) {
-    let waveY = Math.sin((globalTimer + i) * 0.1) * 2;
-    ctx.fillRect(w.x + i, w.y + 1 + waveY, 4, 2);
+  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
+    ctx.drawImage(tileSprite, tileSprite.width/2, 0, tileSprite.width/2, tileSprite.height/2, w.x, w.y, w.w, w.h);
+  } else {
+    ctx.fillStyle = "#1b4965"; ctx.fillRect(w.x, w.y, w.w, w.h);
+    ctx.fillStyle = "#62b6cb";
+    for (let i = 0; i < w.w; i += 6) {
+      let waveY = Math.sin((globalTimer + i) * 0.1) * 2;
+      ctx.fillRect(w.x + i, w.y + 1 + waveY, 4, 2);
+    }
   }
 }
 
 function drawCrystal(c) {
   if (c.caught) return;
   let bounce = Math.sin(globalTimer * 0.1) * 2;
-  let cx = c.x, cy = c.y + bounce;
-  ctx.fillStyle = "#e0ffff";
-  ctx.beginPath();
-  ctx.moveTo(cx + 4, cy);
-  ctx.lineTo(cx + 8, cy + 5);
-  ctx.lineTo(cx + 4, cy + 10);
-  ctx.lineTo(cx, cy + 5);
-  ctx.fill();
-  ctx.fillStyle = "#00b4d8";
-  ctx.fillRect(cx + 3, cy + 3, 2, 4);
+  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
+    ctx.drawImage(tileSprite, 0, tileSprite.height/2, tileSprite.width/2, tileSprite.height/2, c.x, c.y + bounce, 12, 12);
+  } else {
+    let cx = c.x, cy = c.y + bounce;
+    ctx.fillStyle = "#e0ffff";
+    ctx.beginPath(); ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + 8, cy + 5); ctx.lineTo(cx + 4, cy + 10); ctx.lineTo(cx, cy + 5); ctx.fill();
+    ctx.fillStyle = "#00b4d8"; ctx.fillRect(cx + 3, cy + 3, 2, 4);
+  }
 }
 
 function drawGoal(g) {
-  ctx.fillStyle = "#e0f7fa";
-  ctx.beginPath();
-  ctx.arc(g.x + 16, g.y + 30, 18, Math.PI, 0, false);
-  ctx.fill();
-  ctx.fillStyle = "#101820";
-  ctx.fillRect(g.x + 10, g.y + 18, 12, 14);
-  ctx.fillStyle = "#ff4d6d";
-  ctx.fillRect(g.x + 22, g.y - 10, 10, 7);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(g.x + 20, g.y - 12, 2, 20);
+  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
+    ctx.drawImage(tileSprite, tileSprite.width/2, tileSprite.height/2, tileSprite.width/2, tileSprite.height/2, g.x, g.y, g.w, g.h);
+  } else {
+    ctx.fillStyle = "#e0f7fa";
+    ctx.beginPath(); ctx.arc(g.x + 16, g.y + 30, 18, Math.PI, 0, false); ctx.fill();
+    ctx.fillStyle = "#101820"; ctx.fillRect(g.x + 10, g.y + 18, 12, 14);
+    ctx.fillStyle = "#ff4d6d"; ctx.fillRect(g.x + 22, g.y - 10, 10, 7);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(g.x + 20, g.y - 12, 2, 20);
+  }
 }
 
 function drawAnimals(a) {
@@ -389,7 +392,6 @@ function drawAnimals(a) {
     let frameIndex = Math.floor(globalTimer / 10) % 4;
     ctx.drawImage(enemySprite, frameIndex * frameW, row * frameH, frameW, frameH, -a.w/2-4, -a.h/2-4, a.w+8, a.h+8);
   } else {
-    // Desenho vetorial de backup para não travar
     if (a.type === "polar") {
       ctx.fillStyle = "#f8f9fa"; ctx.fillRect(-12, -10, 24, 18); ctx.fillRect(6, -14, 8, 10);
       ctx.fillStyle = "#212529"; ctx.fillRect(12, -12, 3, 3);
@@ -411,7 +413,6 @@ function render() {
   ctx.fillStyle = "#87c9ef";
   ctx.fillRect(0, 0, W, H);
 
-  // Montanhas Parallax
   ctx.fillStyle = "#b0e0e6";
   ctx.beginPath();
   ctx.moveTo(0 - cameraX * 0.2, H);
@@ -435,23 +436,14 @@ function render() {
 }
 
 function loop() {
-  update();
-  render();
-  requestAnimationFrame(loop);
+  update(); render(); requestAnimationFrame(loop);
 }
 
 window.addEventListener("keydown", e => {
-  initAudio();
-  keys[e.code] = true;
-  if (state === "title" && e.code === "Enter") {
-    state = "play";
-    hidePanel();
-  }
+  initAudio(); keys[e.code] = true;
+  if (state === "title" && e.code === "Enter") { state = "play"; hidePanel(); }
 });
-
-window.addEventListener("keyup", e => {
-  keys[e.code] = false;
-});
+window.addEventListener("keyup", e => { keys[e.code] = false; });
 
 function bindTouch(id, keyName) {
   const btn = document.getElementById(id);
@@ -463,11 +455,8 @@ function bindTouch(id, keyName) {
   btn.addEventListener("pointercancel", end);
 }
 
-bindTouch("left", "left");
-bindTouch("right", "right");
-bindTouch("up", "jump");
-bindTouch("jump", "jump");
-bindTouch("action", "KeyB");
+bindTouch("left", "left"); bindTouch("right", "right");
+bindTouch("up", "jump"); bindTouch("jump", "jump"); bindTouch("action", "KeyB");
 
 loadLevel(0);
 showPanel("Marcelo no Alasca", "<p>Pressione <b>ENTER</b> ou toque no botão para jogar!</p><button onclick='state=\"play\"; hidePanel();'>Iniciar Jogo</button>");
