@@ -68,33 +68,36 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// Processamento de Imagens sem fundo branco
-let processedPlayerSprite = null;
-const rawPlayerSprite = new Image(); 
-rawPlayerSprite.src = "avatar-reference.jpg";
+// Função Utilitária para Remover Fundos Brancos de Imagens em Tempo Real
+function makeTransparent(imgSrc, callback) {
+  const img = new Image();
+  img.src = imgSrc;
+  img.onload = () => {
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = img.width;
+    offCanvas.height = img.height;
+    const offCtx = offCanvas.getContext("2d");
+    offCtx.drawImage(img, 0, 0);
 
-rawPlayerSprite.onload = () => {
-  const offCanvas = document.createElement("canvas");
-  offCanvas.width = rawPlayerSprite.width;
-  offCanvas.height = rawPlayerSprite.height;
-  const offCtx = offCanvas.getContext("2d");
-  offCtx.drawImage(rawPlayerSprite, 0, 0);
+    const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+    const data = imgData.data;
 
-  const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
-  const data = imgData.data;
-
-  // Filtro de Transparência Automática para Fundos Brancos
-  for (let i = 0; i < data.length; i += 4) {
-    if (data[i] > 235 && data[i+1] > 235 && data[i+2] > 235) {
-      data[i+3] = 0;
+    // Converte pixels brancos e acinzentados do fundo em transparente
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] > 225 && data[i+1] > 225 && data[i+2] > 225) {
+        data[i+3] = 0;
+      }
     }
-  }
-  offCtx.putImageData(imgData, 0, 0);
-  processedPlayerSprite = offCanvas;
-};
+    offCtx.putImageData(imgData, 0, 0);
+    callback(offCanvas);
+  };
+}
 
-const enemySprite = new Image(); enemySprite.src = "enemies.png";
-const tileSprite = new Image(); tileSprite.src = "tiles.png";
+let processedPlayerSprite = null;
+makeTransparent("avatar-reference.jpg", canvasImg => { processedPlayerSprite = canvasImg; });
+
+let processedEnemySprite = null;
+makeTransparent("enemies.png", canvasImg => { processedEnemySprite = canvasImg; });
 
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
@@ -113,7 +116,7 @@ let globalTimer = 0;
 let audioCtx = null;
 
 const player = {
-  x: 22, y: 100, w: 20, h: 28,
+  x: 22, y: 100, w: 22, h: 32,
   vx: 0, vy: 0,
   grounded: false,
   facing: 1,
@@ -266,7 +269,7 @@ function update() {
     player.animIndex = Math.floor((player.animTimer / 12) % 4);
   }
 
-  // Estrelas Bônus
+  // Coleta de Estrelas
   crystals.forEach(c => {
     if (!c.caught && player.x < c.x + 14 && player.x + player.w > c.x &&
         player.y < c.y + 14 && player.y + player.h > c.y) {
@@ -274,26 +277,24 @@ function update() {
     }
   });
 
-  // Inimigos + Mecânica de Pular em cima (Stomp)
+  // Inimigos e Mecânica de Pular em Cima
   for (let a of animals) {
     if (!a.alive) continue;
 
     a.x += a.dir * 0.8;
     if (a.x < a.min || a.x > a.max) a.dir *= -1;
 
-    // Colisão com o Inimigo
     if (player.x < a.x + a.w && player.x + player.w > a.x &&
         player.y < a.y + a.h && player.y + player.h > a.y) {
 
-      // Se o jogador estiver caindo em cima do inimigo (Pulo do Mário)
-      if (player.vy > 0 && player.y + player.h - player.vy <= a.y + 8) {
-        a.alive = false; // Elimina o inimigo
-        player.vy = JUMP * 0.7;5 // Impulso para cima
+      if (player.vy > 0 && player.y + player.h - player.vy <= a.y + 10) {
+        a.alive = false;
+        player.vy = JUMP * 0.7;
         score += 200;
         updateHUD();
         playSound("stomp");
       } else {
-        playerHurt(); // Dano lateral ou por baixo
+        playerHurt();
       }
     }
   }
@@ -326,7 +327,7 @@ function restartGame() {
   lives = 3; score = 0; levelIndex = 0; updateHUD(); state = "play"; loadLevel(0);
 }
 
-// RENDERIZADOR PERFEITO DO MARCELO (SEM NÚMEROS E SEM BUG DE RECORTE)
+// RENDERIZADOR DO MARCELO COMPLETO (SEM CORTE DE CABEÇA E SEM TEXTOS)
 function drawMarcelo() {
   if (processedPlayerSprite) {
     const cols = 4;
@@ -336,16 +337,16 @@ function drawMarcelo() {
     const frameW = processedPlayerSprite.width / 4;
     const frameH = processedPlayerSprite.height / 4;
 
-    // Corte ultra preciso apenas no corpo do personagem (Descarta textos)
-    const cropX = col * frameW + (frameW * 0.20);
-    const cropY = row * frameH + (frameH * 0.26);
-    const cropW = frameW * 0.60;
-    const cropH = frameH * 0.58;
+    // Ajuste perfeito da área de recorte para capturar o boneco por inteiro
+    const cropX = col * frameW + (frameW * 0.10);
+    const cropY = row * frameH + (frameH * 0.16);
+    const cropW = frameW * 0.80;
+    const cropH = frameH * 0.72;
 
     ctx.save();
     ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
     if (player.facing === -1) ctx.scale(-1, 1);
-    ctx.drawImage(processedPlayerSprite, cropX, cropY, cropW, cropH, -player.w/2-2, -player.h/2-2, player.w+4, player.h+4);
+    ctx.drawImage(processedPlayerSprite, cropX, cropY, cropW, cropH, -player.w/2 - 6, -player.h/2 - 6, player.w + 12, player.h + 12);
     ctx.restore();
   } else {
     ctx.fillStyle = "#2a9d8f";
@@ -354,7 +355,6 @@ function drawMarcelo() {
 }
 
 function drawPlatform(p) {
-  // Plataformas de Neve Texturizadas
   ctx.fillStyle = "#a8e0f0"; ctx.fillRect(p.x, p.y, p.w, p.h);
   ctx.fillStyle = "#6cb0d8"; ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
   ctx.fillStyle = "#ffffff"; ctx.fillRect(p.x - 1, p.y, p.w + 2, 4);
@@ -373,19 +373,16 @@ function drawWater(w) {
   }
 }
 
-// ESTRELA DE BÔNUS EM PIXEL ART DETALHADA
 function drawStar(c) {
   if (c.caught) return;
   let bounce = Math.sin(globalTimer * 0.15) * 2.5;
   let sx = c.x, sy = c.y + bounce;
 
-  // Brilho Externo Dourado
   ctx.fillStyle = "#ffd700";
   ctx.fillRect(sx + 5, sy, 4, 14);
   ctx.fillRect(sx, sy + 5, 14, 4);
   ctx.fillRect(sx + 3, sy + 3, 8, 8);
 
-  // Centro Brilhante Amarelo Claro
   ctx.fillStyle = "#fffae0";
   ctx.fillRect(sx + 6, sy + 2, 2, 10);
   ctx.fillRect(sx + 2, sy + 6, 10, 2);
@@ -399,6 +396,7 @@ function drawGoal(g) {
   ctx.fillStyle = "#ffffff"; ctx.fillRect(g.x + 20, g.y - 12, 2, 20);
 }
 
+// RENDERIZADOR DOS INIMIGOS (COM TRANSPARÊNCIA COMPLETA)
 function drawAnimals(a) {
   if (!a.alive) return;
 
@@ -406,12 +404,12 @@ function drawAnimals(a) {
   ctx.translate(a.x + a.w / 2, a.y + a.h / 2);
   if (a.dir === -1) ctx.scale(-1, 1);
 
-  if (enemySprite.complete && enemySprite.naturalWidth !== 0) {
+  if (processedEnemySprite) {
     let row = a.type === "polar" ? 0 : (a.type === "seal" ? 1 : 2);
-    let frameW = enemySprite.width / 4;
-    let frameH = enemySprite.height / 3;
+    let frameW = processedEnemySprite.width / 4;
+    let frameH = processedEnemySprite.height / 3;
     let frameIndex = Math.floor(globalTimer / 10) % 4;
-    ctx.drawImage(enemySprite, frameIndex * frameW, row * frameH, frameW, frameH, -a.w/2-4, -a.h/2-4, a.w+8, a.h+8);
+    ctx.drawImage(processedEnemySprite, frameIndex * frameW, row * frameH, frameW, frameH, -a.w/2-4, -a.h/2-4, a.w+8, a.h+8);
   } else {
     if (a.type === "polar") {
       ctx.fillStyle = "#f8f9fa"; ctx.fillRect(-12, -10, 24, 18); ctx.fillRect(6, -14, 8, 10);
@@ -434,7 +432,6 @@ function render() {
   ctx.fillStyle = "#87c9ef";
   ctx.fillRect(0, 0, W, H);
 
-  // Montanhas Parallax no fundo
   ctx.fillStyle = "#b0e0e6";
   ctx.beginPath();
   ctx.moveTo(0 - cameraX * 0.2, H);
