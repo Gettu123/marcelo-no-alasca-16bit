@@ -68,32 +68,39 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// Função de remoção de fundo transparente automática
-function loadTransparentImage(src, callback) {
+// REMOVEDOR PROFISSIONAL DE SERRA/FUNDO VERDE (CHROMA KEY)
+function removeChromaKeyGreen(imgSrc, callback) {
   const img = new Image();
-  img.src = src;
+  img.src = imgSrc;
   img.onload = () => {
-    const c = document.createElement("canvas");
-    c.width = img.width; c.height = img.height;
-    const cCtx = c.getContext("2d");
-    cCtx.drawImage(img, 0, 0);
-    const data = cCtx.getImageData(0, 0, c.width, c.height);
-    const d = data.data;
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = img.width;
+    offCanvas.height = img.height;
+    const offCtx = offCanvas.getContext("2d");
+    offCtx.drawImage(img, 0, 0);
+
+    const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
+    const d = imgData.data;
+
+    // Remove qualquer tom de verde do fundo
     for (let i = 0; i < d.length; i += 4) {
-      if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
-        d[i+3] = 0;
+      const r = d[i], g = d[i+1], b = d[i+2];
+      if (g > 150 && r < 120 && b < 120) {
+        d[i+3] = 0; // Transparência total
+      } else if (r > 230 && g > 230 && b > 230) {
+        d[i+3] = 0; // Transparência para fundos brancos residuais
       }
     }
-    cCtx.putImageData(data, 0, 0);
-    callback(c);
+    offCtx.putImageData(imgData, 0, 0);
+    callback(offCanvas);
   };
 }
 
 let playerCanvas = null;
-loadTransparentImage("avatar-reference.png", c => playerCanvas = c);
+removeChromaKeyGreen("avatar-reference.png", c => playerCanvas = c);
 
 let enemyCanvas = null;
-loadTransparentImage("enemies.png", c => enemyCanvas = c);
+removeChromaKeyGreen("enemies.png", c => enemyCanvas = c);
 
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
@@ -183,7 +190,7 @@ const levels = [
       [1740,150,35,30],[1885,150,25,30],[2005,150,35,30]
     ],
     animals: [
-      { type: "seal", x: 340, y: 110, w: 22, h: 14, min: 335, max: 405, dir: 1, alive: true },
+      { type: "seal", x: 340, y: 96, w: 22, h: 14, min: 335, max: 405, dir: 1, alive: true },
       { type: "polar", x: 820, y: 64, w: 28, h: 28, min: 810, max: 895, dir: 1, alive: true },
       { type: "seal", x: 1120, y: 88, w: 22, h: 14, min: 1080, max: 1175, dir: -1, alive: true },
       { type: "fox", x: 1515, y: 74, w: 22, h: 16, min: 1490, max: 1575, dir: 1, alive: true }
@@ -259,7 +266,7 @@ function update() {
   if (!player.grounded) {
     player.animIndex = 4 + Math.floor((player.animTimer / 8) % 4);
   } else if (Math.abs(player.vx) > 0) {
-    player.animIndex = 8 + Math.floor((player.animTimer / 6) % 4);
+    player.animIndex = 12 + Math.floor((player.animTimer / 6) % 4);
   } else {
     player.animIndex = Math.floor((player.animTimer / 12) % 4);
   }
@@ -321,7 +328,7 @@ function restartGame() {
   lives = 3; score = 0; levelIndex = 0; updateHUD(); state = "play"; loadLevel(0);
 }
 
-// DESENHAR MARCELO HD
+// RENDERIZAÇÃO TRANSPARENTE DO MARCELO
 function drawMarcelo() {
   if (playerCanvas) {
     const cols = 4;
