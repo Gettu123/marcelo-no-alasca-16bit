@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Marcelo no Alasca — Ultimate Adventure</title>
+<title>Marcelo no Alasca — Ultimate Adventure HD</title>
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;width:100%;height:100%;background:#071522;overflow:hidden;font-family:monospace}
@@ -68,9 +68,10 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// Carregar Sprite Sheet do Marcelo
-const playerSprite = new Image();
-playerSprite.src = "avatar-reference.jpg";
+// Carregar Imagens do Jogo
+const playerSprite = new Image(); playerSprite.src = "avatar-reference.jpg";
+const enemySprite = new Image();  enemySprite.src = "enemies.jpg";
+const tileSprite = new Image();   tileSprite.src = "tiles.jpg";
 
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
@@ -155,40 +156,20 @@ const levels = [
     ],
     animals: [
       { type: "seal", x: 380, y: 96, w: 22, h: 14, min: 350, max: 410, dir: 1 },
-      { type: "polar", x: 820, y: 64, w: 26, h: 28, min: 810, max: 895, dir: 1 },
+      { type: "polar", x: 820, y: 64, w: 28, h: 28, min: 810, max: 895, dir: 1 },
       { type: "seal", x: 1120, y: 88, w: 22, h: 14, min: 1080, max: 1175, dir: -1 },
-      { type: "fox", x: 1515, y: 65, w: 20, h: 16, min: 1490, max: 1575, dir: 1 }
+      { type: "fox", x: 1515, y: 65, w: 22, h: 16, min: 1490, max: 1575, dir: 1 }
     ],
     crystals: [
       {x: 250, y: 90, caught: false}, {x: 360, y: 80, caught: false}, {x: 600, y: 70, caught: false},
       {x: 850, y: 60, caught: false}, {x: 1100, y: 70, caught: false}, {x: 1530, y: 60, caught: false}
-    ]
-  },
-  {
-    name: "Tempestade Branca",
-    width: 2600,
-    spawn: { x: 20, y: 100 },
-    goal: { x: 2460, y: 94, w: 32, h: 40 },
-    platforms: [
-      [0,132,160,48],[190,112,75,12],[295,132,72,12],[400,96,90,12],
-      [530,120,72,12],[650,86,110,12],[805,116,65,12],[920,94,115,12]
-    ],
-    waters: [
-      [160,150,30,30],[265,150,30,30],[367,150,33,30],[490,150,40,30]
-    ],
-    animals: [
-      { type: "polar", x: 425, y: 68, w: 26, h: 28, min: 400, max: 470, dir: 1 }
-    ],
-    crystals: [
-      {x: 200, y: 80, caught: false}, {x: 320, y: 90, caught: false}, {x: 670, y: 60, caught: false}
     ]
   }
 ];
 
 function loadLevel(idx) {
   const lvl = levels[idx];
-  player.x = lvl.spawn.x;
-  player.y = lvl.spawn.y;
+  player.x = lvl.spawn.x; player.y = lvl.spawn.y;
   player.vx = 0; player.vy = 0;
   platforms = lvl.platforms.map(p => ({ x: p[0], y: p[1], w: p[2], h: p[3] }));
   waters = lvl.waters.map(w => ({ x: w[0], y: w[1], w: w[2], h: w[3] }));
@@ -221,19 +202,15 @@ function update() {
   let moveSpeed = (keys["KeyB"] || keys["b"]) ? DASH_SPEED : SPEED;
 
   if (keys["ArrowLeft"] || keys["KeyA"] || keys["left"]) {
-    player.vx = -moveSpeed;
-    player.facing = -1;
+    player.vx = -moveSpeed; player.facing = -1;
   } else if (keys["ArrowRight"] || keys["KeyD"] || keys["right"]) {
-    player.vx = moveSpeed;
-    player.facing = 1;
+    player.vx = moveSpeed; player.facing = 1;
   } else {
     player.vx = 0;
   }
 
   if ((keys["ArrowUp"] || keys["KeyW"] || keys["Space"] || keys["jump"]) && player.grounded) {
-    player.vy = JUMP;
-    player.grounded = false;
-    playSound("jump");
+    player.vy = JUMP; player.grounded = false; playSound("jump");
   }
 
   player.vy += GRAVITY;
@@ -250,7 +227,6 @@ function update() {
     }
   }
 
-  // Animação do Marcelo
   player.animTimer++;
   if (!player.grounded) {
     player.animIndex = 4 + Math.floor((player.animTimer / 8) % 4);
@@ -260,43 +236,28 @@ function update() {
     player.animIndex = Math.floor((player.animTimer / 12) % 4);
   }
 
-  // Cristais
   crystals.forEach(c => {
     if (!c.caught && player.x < c.x + 12 && player.x + player.w > c.x &&
         player.y < c.y + 12 && player.y + player.h > c.y) {
-      c.caught = true;
-      score += 100;
-      updateHUD();
-      playSound("coin");
+      c.caught = true; score += 100; updateHUD(); playSound("coin");
     }
   });
 
-  // Inimigos
   for (let a of animals) {
     a.x += a.dir * 0.8;
     if (a.x < a.min || a.x > a.max) a.dir *= -1;
-
     if (player.x < a.x + a.w && player.x + player.w > a.x &&
         player.y < a.y + a.h && player.y + player.h > a.y) {
       playerHurt();
     }
   }
 
-  // Queda
-  if (player.y > H + 20) {
-    playerHurt();
-  }
+  if (player.y > H + 20) playerHurt();
 
-  // Objetivo
   if (goal && player.x < goal.x + goal.w && player.x + player.w > goal.x &&
       player.y < goal.y + goal.h && player.y + player.h > goal.y) {
-    levelIndex++;
-    if (levelIndex < levels.length) {
-      loadLevel(levelIndex);
-    } else {
-      state = "win";
-      showPanel("🏆 VOCÊ VENCEU!", `<p>Pontuação final: ${score}</p><button onclick="restartGame()">Jogar Novamente</button>`);
-    }
+    state = "win";
+    showPanel("🏆 VOCÊ VENCEU!", `<p>Pontuação final: ${score}</p><button onclick="restartGame()">Jogar Novamente</button>`);
   }
 
   cameraX = player.x - W / 3;
@@ -316,24 +277,12 @@ function playerHurt() {
 }
 
 function restartGame() {
-  lives = 3;
-  score = 0;
-  levelIndex = 0;
-  updateHUD();
-  state = "play";
-  loadLevel(0);
+  lives = 3; score = 0; levelIndex = 0; updateHUD(); state = "play"; loadLevel(0);
 }
 
-// -------------------------------------------------------------
-// RENDERIZADORES 2D PIXEL ART (CENÁRIOS & PERSONAGENS)
-// -------------------------------------------------------------
-
+// RENDERIZADORES HD PIXEL-ART COM IMAGENS CORTADAS
 function drawMarcelo() {
-  if (!playerSprite.complete) {
-    ctx.fillStyle = "#2a9d8f";
-    ctx.fillRect(player.x, player.y, player.w, player.h);
-    return;
-  }
+  if (!playerSprite.complete) return;
   const cols = 4;
   const col = player.animIndex % cols;
   const row = Math.floor(player.animIndex / cols);
@@ -343,82 +292,39 @@ function drawMarcelo() {
   ctx.save();
   ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
   if (player.facing === -1) ctx.scale(-1, 1);
-  ctx.drawImage(
-    playerSprite,
-    col * frameW, row * frameH, frameW, frameH,
-    -player.w / 2 - 4, -player.h / 2 - 4, player.w + 8, player.h + 8
-  );
+  ctx.drawImage(playerSprite, col * frameW, row * frameH, frameW, frameH, -player.w/2-4, -player.h/2-4, player.w+8, player.h+8);
   ctx.restore();
 }
 
 function drawPlatform(p) {
-  // Base de gelo azulado
-  ctx.fillStyle = "#a8e0f0";
-  ctx.fillRect(p.x, p.y, p.w, p.h);
-  
-  // Sombra inferior do gelo
-  ctx.fillStyle = "#6cb0d8";
-  ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
-  
-  // Camada de neve no topo
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(p.x - 1, p.y, p.w + 2, 4);
-  
-  // Detalhes de flocos/ondulações de neve
-  ctx.fillStyle = "#d9f2fa";
-  for(let i = 0; i < p.w; i += 8) {
-    ctx.fillRect(p.x + i, p.y + 3, 4, 2);
+  if (!tileSprite.complete) {
+    ctx.fillStyle = "#a8e0f0"; ctx.fillRect(p.x, p.y, p.w, p.h); return;
   }
+  // Desenha os blocos recortados do tilemap
+  ctx.drawImage(tileSprite, 0, 0, tileSprite.width/2, tileSprite.height/2, p.x, p.y, p.w, p.h);
 }
 
 function drawWater(w) {
-  // Água congelante profunda
-  ctx.fillStyle = "#1b4965";
-  ctx.fillRect(w.x, w.y, w.w, w.h);
-  
-  // Animação de ondas de água
-  ctx.fillStyle = "#62b6cb";
-  let offset = Math.floor(globalTimer / 10) % 6;
-  for (let i = 0; i < w.w; i += 6) {
-    let waveY = Math.sin((globalTimer + i) * 0.1) * 2;
-    ctx.fillRect(w.x + i, w.y + 1 + waveY, 4, 2);
+  if (!tileSprite.complete) {
+    ctx.fillStyle = "#1b4965"; ctx.fillRect(w.x, w.y, w.w, w.h); return;
   }
+  ctx.drawImage(tileSprite, tileSprite.width/2, 0, tileSprite.width/2, tileSprite.height/2, w.x, w.y, w.w, w.h);
 }
 
 function drawCrystal(c) {
   if (c.caught) return;
+  if (!tileSprite.complete) {
+    ctx.fillStyle = "#00ffff"; ctx.fillRect(c.x, c.y, 8, 8); return;
+  }
   let bounce = Math.sin(globalTimer * 0.1) * 2;
-  let cx = c.x, cy = c.y + bounce;
-  
-  // Brilho do Cristal
-  ctx.fillStyle = "#e0ffff";
-  ctx.beginPath();
-  ctx.moveTo(cx + 4, cy);
-  ctx.lineTo(cx + 8, cy + 5);
-  ctx.lineTo(cx + 4, cy + 10);
-  ctx.lineTo(cx, cy + 5);
-  ctx.fill();
-  
-  ctx.fillStyle = "#00b4d8";
-  ctx.fillRect(cx + 3, cy + 3, 2, 4);
+  ctx.drawImage(tileSprite, 0, tileSprite.height/2, tileSprite.width/2, tileSprite.height/2, c.x, c.y + bounce, 12, 12);
 }
 
 function drawGoal(g) {
-  // Desenho de um Igloo como Ponto Final
-  ctx.fillStyle = "#e0f7fa";
-  ctx.beginPath();
-  ctx.arc(g.x + 16, g.y + 30, 18, Math.PI, 0, false);
-  ctx.fill();
-  
-  // Entrada do Igloo
-  ctx.fillStyle = "#101820";
-  ctx.fillRect(g.x + 10, g.y + 18, 12, 14);
-  
-  // Bandeira de Chegada
-  ctx.fillStyle = "#ff4d6d";
-  ctx.fillRect(g.x + 22, g.y - 10, 10, 7);
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(g.x + 20, g.y - 12, 2, 20);
+  if (!tileSprite.complete) {
+    ctx.fillStyle = "#ffd700"; ctx.fillRect(g.x, g.y, g.w, g.h); return;
+  }
+  ctx.drawImage(tileSprite, tileSprite.width/2, tileSprite.height/2, tileSprite.width/2, tileSprite.height/2, g.x, g.y, g.w, g.h);
 }
 
 function drawAnimals(a) {
@@ -426,43 +332,14 @@ function drawAnimals(a) {
   ctx.translate(a.x + a.w / 2, a.y + a.h / 2);
   if (a.dir === -1) ctx.scale(-1, 1);
 
-  if (a.type === "polar") {
-    // URSO POLAR
-    ctx.fillStyle = "#f8f9fa"; // Corpo
-    ctx.fillRect(-12, -10, 24, 18);
-    ctx.fillRect(6, -14, 8, 10); // Cabeça
-    ctx.fillStyle = "#e9ecef"; // Orelha
-    ctx.fillRect(7, -16, 3, 3);
-    ctx.fillStyle = "#212529"; // Focinho e Olhos
-    ctx.fillRect(12, -12, 3, 3);
-    ctx.fillRect(10, -13, 2, 2);
-    // Patas correndo
-    let legOffset = Math.sin(globalTimer * 0.2) * 3;
-    ctx.fillStyle = "#dee2e6";
-    ctx.fillRect(-10 + legOffset, 8, 4, 5);
-    ctx.fillRect(4 - legOffset, 8, 4, 5);
-  } else if (a.type === "seal") {
-    // FOCA DO ALASCA
-    ctx.fillStyle = "#6c757d"; // Corpo
-    ctx.fillRect(-10, -4, 20, 10);
-    ctx.fillRect(6, -8, 6, 8); // Cabeça
-    ctx.fillStyle = "#343a40"; // Olho
-    ctx.fillRect(9, -7, 2, 2);
-    ctx.fillStyle = "#495057"; // Cauda
-    ctx.fillRect(-12, -2, 4, 5);
-  } else if (a.type === "fox") {
-    // RAPOSA DO ALASCA
-    ctx.fillStyle = "#e85d04"; // Pelagem Laranja
-    ctx.fillRect(-8, -6, 16, 10);
-    ctx.fillRect(4, -10, 6, 6); // Cabeça
-    ctx.fillStyle = "#ffffff"; // Peito de Neve
-    ctx.fillRect(2, -4, 4, 6);
-    ctx.fillStyle = "#212529"; // Olhos e orelhas
-    ctx.fillRect(6, -12, 2, 3);
-    ctx.fillRect(7, -9, 2, 2);
-    // Cauda Felpuda
-    ctx.fillStyle = "#dc2f02";
-    ctx.fillRect(-12, -8, 6, 6);
+  if (enemySprite.complete) {
+    let row = a.type === "polar" ? 0 : (a.type === "seal" ? 1 : 2);
+    let frameW = enemySprite.width / 2;
+    let frameH = enemySprite.height / 3;
+    let frameIndex = Math.floor(globalTimer / 10) % 2;
+    ctx.drawImage(enemySprite, frameIndex * frameW, row * frameH, frameW, frameH, -a.w/2-4, -a.h/2-4, a.w+8, a.h+8);
+  } else {
+    ctx.fillStyle = "#e63946"; ctx.fillRect(-a.w/2, -a.h/2, a.w, a.h);
   }
   ctx.restore();
 }
@@ -471,56 +348,32 @@ function render() {
   ctx.save();
   ctx.setTransform(canvas.width / VIEW_W, 0, 0, canvas.height / VIEW_H, 0, 0);
 
-  // Fundo Neve/Céu
   ctx.fillStyle = "#87c9ef";
   ctx.fillRect(0, 0, W, H);
 
-  // Montanhas ao Fundo (Parallax)
-  ctx.fillStyle = "#b0e0e6";
-  ctx.beginPath();
-  ctx.moveTo(0 - cameraX * 0.2, H);
-  ctx.lineTo(60 - cameraX * 0.2, H - 50);
-  ctx.lineTo(120 - cameraX * 0.2, H);
-  ctx.lineTo(200 - cameraX * 0.2, H - 70);
-  ctx.lineTo(300 - cameraX * 0.2, H);
-  ctx.fill();
-
   ctx.translate(-Math.floor(cameraX), 0);
 
-  // Desenhar Elementos
   waters.forEach(drawWater);
   platforms.forEach(drawPlatform);
   crystals.forEach(drawCrystal);
   if (goal) drawGoal(goal);
   animals.forEach(drawAnimals);
 
-  // Desenhar Marcelo Animado
   drawMarcelo();
 
   ctx.restore();
 }
 
 function loop() {
-  update();
-  render();
-  requestAnimationFrame(loop);
+  update(); render(); requestAnimationFrame(loop);
 }
 
-// Eventos de Teclado
 window.addEventListener("keydown", e => {
-  initAudio();
-  keys[e.code] = true;
-  if (state === "title" && e.code === "Enter") {
-    state = "play";
-    hidePanel();
-  }
+  initAudio(); keys[e.code] = true;
+  if (state === "title" && e.code === "Enter") { state = "play"; hidePanel(); }
 });
+window.addEventListener("keyup", e => { keys[e.code] = false; });
 
-window.addEventListener("keyup", e => {
-  keys[e.code] = false;
-});
-
-// Suporte Touch
 function bindTouch(id, keyName) {
   const btn = document.getElementById(id);
   if (!btn) return;
@@ -531,13 +384,9 @@ function bindTouch(id, keyName) {
   btn.addEventListener("pointercancel", end);
 }
 
-bindTouch("left", "left");
-bindTouch("right", "right");
-bindTouch("up", "jump");
-bindTouch("jump", "jump");
-bindTouch("action", "KeyB");
+bindTouch("left", "left"); bindTouch("right", "right");
+bindTouch("up", "jump"); bindTouch("jump", "jump"); bindTouch("action", "KeyB");
 
-// Início do Jogo
 loadLevel(0);
 showPanel("Marcelo no Alasca", "<p>Pressione <b>ENTER</b> ou toque no botão para jogar!</p><button onclick='state=\"play\"; hidePanel();'>Iniciar Jogo</button>");
 loop();
