@@ -68,6 +68,54 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
+// Processamento Inteligente da Imagem Real para Limpar Fundos Brancos e Textos
+let processedPlayerCanvas = null;
+const rawPlayerImg = new Image();
+rawPlayerImg.src = "avatar-reference.jpg";
+
+rawPlayerImg.onload = () => {
+  const c = document.createElement("canvas");
+  c.width = rawPlayerImg.width;
+  c.height = rawPlayerImg.height;
+  const cCtx = c.getContext("2d");
+  cCtx.drawImage(rawPlayerImg, 0, 0);
+
+  const imgData = cCtx.getImageData(0, 0, c.width, c.height);
+  const d = imgData.data;
+
+  // Torna fundos brancos/claros 100% transparentes
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
+      d[i+3] = 0;
+    }
+  }
+  cCtx.putImageData(imgData, 0, 0);
+  processedPlayerCanvas = c;
+};
+
+let processedEnemyCanvas = null;
+const rawEnemyImg = new Image();
+rawEnemyImg.src = "enemies.png";
+
+rawEnemyImg.onload = () => {
+  const c = document.createElement("canvas");
+  c.width = rawEnemyImg.width;
+  c.height = rawEnemyImg.height;
+  const cCtx = c.getContext("2d");
+  cCtx.drawImage(rawEnemyImg, 0, 0);
+
+  const imgData = cCtx.getImageData(0, 0, c.width, c.height);
+  const d = imgData.data;
+
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
+      d[i+3] = 0;
+    }
+  }
+  cCtx.putImageData(imgData, 0, 0);
+  processedEnemyCanvas = c;
+};
+
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
 const GRAVITY = 0.32;
@@ -85,10 +133,11 @@ let globalTimer = 0;
 let audioCtx = null;
 
 const player = {
-  x: 22, y: 100, w: 20, h: 30,
+  x: 22, y: 100, w: 22, h: 32,
   vx: 0, vy: 0,
   grounded: false,
   facing: 1,
+  animIndex: 0,
   animTimer: 0
 };
 
@@ -121,7 +170,7 @@ function playSound(type) {
       gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
       osc.start(); osc.stop(audioCtx.currentTime + 0.22);
     } else if (type === "stomp") {
-      osc.type = "triangle"; osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+      osc.type = "triangle"; osc.frequency.setValueAtTime(300, audioCtx.currentTime);
       osc.frequency.linearRampToValueAtTime(120, audioCtx.currentTime + 0.12);
       gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
       gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
@@ -155,9 +204,9 @@ const levels = [
       [1740,150,35,30],[1885,150,25,30],[2005,150,35,30]
     ],
     animals: [
-      { type: "seal", x: 340, y: 96, w: 24, h: 14, min: 335, max: 405, dir: 1, alive: true },
+      { type: "seal", x: 340, y: 110, w: 22, h: 14, min: 335, max: 405, dir: 1, alive: true },
       { type: "polar", x: 820, y: 64, w: 28, h: 28, min: 810, max: 895, dir: 1, alive: true },
-      { type: "seal", x: 1120, y: 88, w: 24, h: 14, min: 1080, max: 1175, dir: -1, alive: true },
+      { type: "seal", x: 1120, y: 88, w: 22, h: 14, min: 1080, max: 1175, dir: -1, alive: true },
       { type: "fox", x: 1515, y: 74, w: 22, h: 16, min: 1490, max: 1575, dir: 1, alive: true }
     ],
     crystals: [
@@ -228,8 +277,14 @@ function update() {
   }
 
   player.animTimer++;
+  if (!player.grounded) {
+    player.animIndex = 4 + Math.floor((player.animTimer / 8) % 4);
+  } else if (Math.abs(player.vx) > 0) {
+    player.animIndex = 8 + Math.floor((player.animTimer / 6) % 4);
+  } else {
+    player.animIndex = Math.floor((player.animTimer / 12) % 4);
+  }
 
-  // Estrelas Bônus
   crystals.forEach(c => {
     if (!c.caught && player.x < c.x + 14 && player.x + player.w > c.x &&
         player.y < c.y + 14 && player.y + player.h > c.y) {
@@ -237,7 +292,6 @@ function update() {
     }
   });
 
-  // Colisão com Inimigos + Pulo por Cima (Stomp)
   for (let a of animals) {
     if (!a.alive) continue;
 
@@ -247,10 +301,10 @@ function update() {
     if (player.x < a.x + a.w && player.x + player.w > a.x &&
         player.y < a.y + a.h && player.y + player.h > a.y) {
 
-      // Se o Marcelo estiver caindo em cima do inimigo
+      // Se pular por cima do inimigo (Stomp)
       if (player.vy > 0 && player.y + player.h - player.vy <= a.y + 8) {
         a.alive = false;
-        player.vy = JUMP * 0.7; // Impulso para cima
+        player.vy = JUMP * 0.7;
         score += 200;
         updateHUD();
         playSound("stomp");
@@ -288,56 +342,35 @@ function restartGame() {
   lives = 3; score = 0; levelIndex = 0; updateHUD(); state = "play"; loadLevel(0);
 }
 
-// -------------------------------------------------------------
-// RENDERIZADORES NATIVOS EM PIXEL ART (SEM BUGBOARD OU TEXTOS)
-// -------------------------------------------------------------
-
+// RENDERIZADOR PERFEITO E DETALHADO DO MARCELO
 function drawMarcelo() {
-  ctx.save();
-  ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
-  if (player.facing === -1) ctx.scale(-1, 1);
+  if (processedPlayerCanvas) {
+    const cols = 4;
+    const col = player.animIndex % cols;
+    const row = Math.floor(player.animIndex / cols);
 
-  // Cabeça e Careca
-  ctx.fillStyle = "#d4a373";
-  ctx.fillRect(-6, -15, 12, 11);
-  // Barba Castanha
-  ctx.fillStyle = "#582f0e";
-  ctx.fillRect(-6, -7, 12, 4);
-  ctx.fillRect(-4, -5, 8, 3);
-  // Olho
-  ctx.fillStyle = "#101820";
-  ctx.fillRect(2, -11, 2, 2);
+    const fw = processedPlayerCanvas.width / 4;
+    const fh = processedPlayerCanvas.height / 4;
 
-  // Jaqueta Castanha/Marrom (Alasca)
-  ctx.fillStyle = "#7f4f24";
-  ctx.fillRect(-7, -4, 14, 11);
-  // Camisa Preta por Baixo
-  ctx.fillStyle = "#1b1b1e";
-  ctx.fillRect(-3, -4, 6, 11);
+    // Recorte Milimétrico para pegar só o Marcelo e ignorar os números '1.', '2.', etc.
+    const cropX = col * fw + (fw * 0.22);
+    const cropY = row * fh + (fh * 0.28);
+    const cropW = fw * 0.56;
+    const cropH = fh * 0.65;
 
-  // Animação de Pernas (Correndo ou Parado)
-  let legAnim = (Math.abs(player.vx) > 0 && player.grounded) ? Math.sin(globalTimer * 0.4) * 4 : 0;
-  ctx.fillStyle = "#2b2d42"; // Calça Jeans
-  ctx.fillRect(-6 + legAnim, 7, 5, 8);
-  ctx.fillRect(1 - legAnim, 7, 5, 8);
-
-  // Botas de Neve
-  ctx.fillStyle = "#101820";
-  ctx.fillRect(-7 + legAnim, 13, 6, 3);
-  ctx.fillRect(1 - legAnim, 13, 6, 3);
-
-  ctx.restore();
+    ctx.save();
+    ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+    if (player.facing === -1) ctx.scale(-1, 1);
+    ctx.drawImage(processedPlayerCanvas, cropX, cropY, cropW, cropH, -player.w/2-2, -player.h/2-2, player.w+4, player.h+4);
+    ctx.restore();
+  }
 }
 
 function drawPlatform(p) {
-  // Bloco de Gelo Azulado
   ctx.fillStyle = "#a8e0f0"; ctx.fillRect(p.x, p.y, p.w, p.h);
-  // Sombra Inferior
-  ctx.fillStyle = "#5fa8d3"; ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
-  // Topo Neve Branca
+  ctx.fillStyle = "#6cb0d8"; ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
   ctx.fillStyle = "#ffffff"; ctx.fillRect(p.x - 1, p.y, p.w + 2, 4);
-  // Detalhes da Neve
-  ctx.fillStyle = "#e0f7fa";
+  ctx.fillStyle = "#d9f2fa";
   for(let i = 0; i < p.w; i += 12) {
     ctx.fillRect(p.x + i, p.y + 4, 6, 2);
   }
@@ -357,24 +390,20 @@ function drawStar(c) {
   let bounce = Math.sin(globalTimer * 0.15) * 2.5;
   let sx = c.x, sy = c.y + bounce;
 
-  // Estrela Dourada Reluzente
   ctx.fillStyle = "#ffd700";
   ctx.fillRect(sx + 5, sy, 4, 14);
   ctx.fillRect(sx, sy + 5, 14, 4);
   ctx.fillRect(sx + 3, sy + 3, 8, 8);
 
-  // Centro Brilhante
   ctx.fillStyle = "#fffae0";
   ctx.fillRect(sx + 6, sy + 2, 2, 10);
   ctx.fillRect(sx + 2, sy + 6, 10, 2);
 }
 
 function drawGoal(g) {
-  // Igloo
   ctx.fillStyle = "#e0f7fa";
   ctx.beginPath(); ctx.arc(g.x + 16, g.y + 30, 18, Math.PI, 0, false); ctx.fill();
   ctx.fillStyle = "#101820"; ctx.fillRect(g.x + 10, g.y + 18, 12, 14);
-  // Bandeira do Alasca
   ctx.fillStyle = "#ff4d6d"; ctx.fillRect(g.x + 22, g.y - 10, 10, 7);
   ctx.fillStyle = "#ffffff"; ctx.fillRect(g.x + 20, g.y - 12, 2, 20);
 }
@@ -386,33 +415,13 @@ function drawAnimals(a) {
   ctx.translate(a.x + a.w / 2, a.y + a.h / 2);
   if (a.dir === -1) ctx.scale(-1, 1);
 
-  if (a.type === "seal") {
-    // FOCA DO ALASCA (Sobre o Gelo)
-    ctx.fillStyle = "#5c677d"; // Corpo
-    ctx.fillRect(-10, -3, 20, 8);
-    ctx.fillRect(5, -6, 6, 7); // Cabeça
-    ctx.fillStyle = "#101820"; // Olho
-    ctx.fillRect(8, -5, 2, 2);
-    ctx.fillStyle = "#474f61"; // Cauda
-    ctx.fillRect(-12, -1, 4, 4);
-    // Nadadeira
-    ctx.fillStyle = "#3d4351";
-    ctx.fillRect(-2, 2, 5, 3);
-  } else if (a.type === "polar") {
-    // URSO POLAR
-    ctx.fillStyle = "#f8f9fa"; ctx.fillRect(-12, -10, 24, 16); ctx.fillRect(6, -14, 8, 10);
-    ctx.fillStyle = "#e9ecef"; ctx.fillRect(7, -16, 3, 3);
-    ctx.fillStyle = "#212529"; ctx.fillRect(12, -12, 3, 3); ctx.fillRect(10, -13, 2, 2);
-    let legOffset = Math.sin(globalTimer * 0.2) * 3;
-    ctx.fillStyle = "#dee2e6";
-    ctx.fillRect(-10 + legOffset, 6, 4, 6); ctx.fillRect(4 - legOffset, 6, 4, 6);
-  } else if (a.type === "fox") {
-    // RAPOSA DO ALASCA
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(-8, -6, 16, 10); ctx.fillRect(4, -10, 6, 6);
-    ctx.fillStyle = "#e9ecef"; ctx.fillRect(2, -4, 4, 6);
-    ctx.fillStyle = "#212529"; ctx.fillRect(6, -12, 2, 3);
+  if (processedEnemyCanvas) {
+    let row = a.type === "polar" ? 0 : (a.type === "seal" ? 1 : 2);
+    let fw = processedEnemyCanvas.width / 4;
+    let fh = processedEnemyCanvas.height / 3;
+    let frameIndex = Math.floor(globalTimer / 10) % 4;
+    ctx.drawImage(processedEnemyCanvas, frameIndex * fw, row * fh, fw, fh, -a.w/2-4, -a.h/2-4, a.w+8, a.h+8);
   }
-
   ctx.restore();
 }
 
@@ -423,7 +432,6 @@ function render() {
   ctx.fillStyle = "#87c9ef";
   ctx.fillRect(0, 0, W, H);
 
-  // Montanhas Parallax
   ctx.fillStyle = "#b0e0e6";
   ctx.beginPath();
   ctx.moveTo(0 - cameraX * 0.2, H);
