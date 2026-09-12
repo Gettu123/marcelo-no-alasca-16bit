@@ -68,53 +68,32 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// Processamento Inteligente da Imagem Real para Limpar Fundos Brancos e Textos
-let processedPlayerCanvas = null;
-const rawPlayerImg = new Image();
-rawPlayerImg.src = "avatar-reference.jpg";
-
-rawPlayerImg.onload = () => {
-  const c = document.createElement("canvas");
-  c.width = rawPlayerImg.width;
-  c.height = rawPlayerImg.height;
-  const cCtx = c.getContext("2d");
-  cCtx.drawImage(rawPlayerImg, 0, 0);
-
-  const imgData = cCtx.getImageData(0, 0, c.width, c.height);
-  const d = imgData.data;
-
-  // Torna fundos brancos/claros 100% transparentes
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
-      d[i+3] = 0;
+// Função de remoção de fundo transparente automática
+function loadTransparentImage(src, callback) {
+  const img = new Image();
+  img.src = src;
+  img.onload = () => {
+    const c = document.createElement("canvas");
+    c.width = img.width; c.height = img.height;
+    const cCtx = c.getContext("2d");
+    cCtx.drawImage(img, 0, 0);
+    const data = cCtx.getImageData(0, 0, c.width, c.height);
+    const d = data.data;
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
+        d[i+3] = 0;
+      }
     }
-  }
-  cCtx.putImageData(imgData, 0, 0);
-  processedPlayerCanvas = c;
-};
+    cCtx.putImageData(data, 0, 0);
+    callback(c);
+  };
+}
 
-let processedEnemyCanvas = null;
-const rawEnemyImg = new Image();
-rawEnemyImg.src = "enemies.png";
+let playerCanvas = null;
+loadTransparentImage("avatar-reference.png", c => playerCanvas = c);
 
-rawEnemyImg.onload = () => {
-  const c = document.createElement("canvas");
-  c.width = rawEnemyImg.width;
-  c.height = rawEnemyImg.height;
-  const cCtx = c.getContext("2d");
-  cCtx.drawImage(rawEnemyImg, 0, 0);
-
-  const imgData = cCtx.getImageData(0, 0, c.width, c.height);
-  const d = imgData.data;
-
-  for (let i = 0; i < d.length; i += 4) {
-    if (d[i] > 220 && d[i+1] > 220 && d[i+2] > 220) {
-      d[i+3] = 0;
-    }
-  }
-  cCtx.putImageData(imgData, 0, 0);
-  processedEnemyCanvas = c;
-};
+let enemyCanvas = null;
+loadTransparentImage("enemies.png", c => enemyCanvas = c);
 
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
@@ -301,7 +280,7 @@ function update() {
     if (player.x < a.x + a.w && player.x + player.w > a.x &&
         player.y < a.y + a.h && player.y + player.h > a.y) {
 
-      // Se pular por cima do inimigo (Stomp)
+      // Pulo em cima do inimigo (Stomp)
       if (player.vy > 0 && player.y + player.h - player.vy <= a.y + 8) {
         a.alive = false;
         player.vy = JUMP * 0.7;
@@ -342,26 +321,20 @@ function restartGame() {
   lives = 3; score = 0; levelIndex = 0; updateHUD(); state = "play"; loadLevel(0);
 }
 
-// RENDERIZADOR PERFEITO E DETALHADO DO MARCELO
+// DESENHAR MARCELO HD
 function drawMarcelo() {
-  if (processedPlayerCanvas) {
+  if (playerCanvas) {
     const cols = 4;
     const col = player.animIndex % cols;
     const row = Math.floor(player.animIndex / cols);
 
-    const fw = processedPlayerCanvas.width / 4;
-    const fh = processedPlayerCanvas.height / 4;
-
-    // Recorte Milimétrico para pegar só o Marcelo e ignorar os números '1.', '2.', etc.
-    const cropX = col * fw + (fw * 0.22);
-    const cropY = row * fh + (fh * 0.28);
-    const cropW = fw * 0.56;
-    const cropH = fh * 0.65;
+    const fw = playerCanvas.width / 4;
+    const fh = playerCanvas.height / 4;
 
     ctx.save();
     ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
     if (player.facing === -1) ctx.scale(-1, 1);
-    ctx.drawImage(processedPlayerCanvas, cropX, cropY, cropW, cropH, -player.w/2-2, -player.h/2-2, player.w+4, player.h+4);
+    ctx.drawImage(playerCanvas, col * fw, row * fh, fw, fh, -player.w/2-3, -player.h/2-3, player.w+6, player.h+6);
     ctx.restore();
   }
 }
@@ -415,12 +388,12 @@ function drawAnimals(a) {
   ctx.translate(a.x + a.w / 2, a.y + a.h / 2);
   if (a.dir === -1) ctx.scale(-1, 1);
 
-  if (processedEnemyCanvas) {
+  if (enemyCanvas) {
     let row = a.type === "polar" ? 0 : (a.type === "seal" ? 1 : 2);
-    let fw = processedEnemyCanvas.width / 4;
-    let fh = processedEnemyCanvas.height / 3;
+    let fw = enemyCanvas.width / 4;
+    let fh = enemyCanvas.height / 3;
     let frameIndex = Math.floor(globalTimer / 10) % 4;
-    ctx.drawImage(processedEnemyCanvas, frameIndex * fw, row * fh, fw, fh, -a.w/2-4, -a.h/2-4, a.w+8, a.h+8);
+    ctx.drawImage(enemyCanvas, frameIndex * fw, row * fh, fw, fh, -a.w/2-4, -a.h/2-4, a.w+8, a.h+8);
   }
   ctx.restore();
 }
