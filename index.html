@@ -7,7 +7,7 @@
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;width:100%;height:100%;background:#071522;overflow:hidden;font-family:monospace}
-  body{display:flex;align-items:center;justify-content:center}
+  body{display:flex;align-items:center;justify-content:center;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none}
   #gameWrap{position:relative;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;background:#071522}
   canvas{width:100%;height:100%;display:block;background:#87c9ef;image-rendering:pixelated;image-rendering:crisp-edges;object-fit:contain}
   #hud{position:absolute;left:12px;right:12px;top:10px;display:flex;justify-content:space-between;pointer-events:none;color:#fff;text-shadow:2px 2px #000;font-size:14px;z-index:10}
@@ -17,7 +17,7 @@
   #panel h1{margin:0 0 10px;font-size:24px;color:#fff}
   #panel p{margin:7px 0;line-height:1.4}
   button{font:inherit;font-weight:bold;cursor:pointer;border:3px solid #17212b;background:#e7f7ff;color:#17212b;padding:9px 14px;margin:5px}
-  #touch{position:absolute;left:0;right:0;bottom:clamp(10px,3vw,24px);display:flex;justify-content:space-between;align-items:end;padding:0 clamp(14px,4vw,42px);pointer-events:none;z-index:5}
+  #touch{position:absolute;left:0;right:0;bottom:clamp(10px,3vw,24px);display:flex;justify-content:space-between;align-items:flex-end;padding:0 clamp(14px,4vw,42px);pointer-events:none;z-index:5}
   .dpad{position:relative;width:126px;height:126px;pointer-events:auto}
   .actionPad{display:flex;align-items:flex-end;gap:12px;pointer-events:auto}
   .touchBtn{position:absolute;width:48px;height:48px;border:3px solid #f4fbff;background:#162431dd;color:#fff;font:bold 22px monospace;border-radius:10px;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:4px 4px 0 #0009;display:flex;align-items:center;justify-content:center}
@@ -30,7 +30,6 @@
   #rotateMsg div{padding:30px;border:3px solid #d9eef5;background:#101820;box-shadow:8px 8px #0008}
   @media (min-width:800px){#touch{display:none}}
   @media (orientation:portrait) and (max-width:799px){#rotateMsg{display:flex}}
-  body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none}
 </style>
 </head>
 <body>
@@ -70,8 +69,6 @@ const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
 const VIEW_W = 320, VIEW_H = 180;
-ctx.setTransform(canvas.width / VIEW_W, 0, 0, canvas.height / VIEW_H, 0, 0);
-
 const W = VIEW_W, H = VIEW_H;
 const GRAVITY = 0.32;
 const JUMP = -5.8;
@@ -84,12 +81,11 @@ let levelIndex = 0;
 let lives = 3;
 let score = 0;
 let cameraX = 0;
-let particles = [];
 let dashTimer = 0;
 let dashCooldown = 0;
 let audioCtx = null;
 
-const ANIM = { IDLE: 0, JUMP: 1, RUN: 2, STORM: 3 };
+const ANIM = { IDLE: 0, JUMP: 1, RUN: 2 };
 
 const player = {
   x: 22, y: 100, w: 22, h: 32,
@@ -129,12 +125,6 @@ function playSound(type) {
       gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
       gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
       osc.start(); osc.stop(audioCtx.currentTime + 0.22);
-    } else if (type === "dash") {
-      osc.type = "triangle"; osc.frequency.setValueAtTime(280, audioCtx.currentTime);
-      osc.frequency.linearRampToValueAtTime(60, audioCtx.currentTime + 0.12);
-      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
-      gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
-      osc.start(); osc.stop(audioCtx.currentTime + 0.12);
     } else if (type === "hurt") {
       osc.type = "sawtooth"; osc.frequency.setValueAtTime(100, audioCtx.currentTime);
       osc.frequency.linearRampToValueAtTime(30, audioCtx.currentTime + 0.3);
@@ -145,7 +135,6 @@ function playSound(type) {
   } catch(e) {}
 }
 
-// CENÁRIOS E COORDENADAS TOTALMENTE RESTAURADOS E CORRIGIDOS
 const levels = [
   {
     name: "Travessia do Gelo",
@@ -165,11 +154,10 @@ const levels = [
       [1740,150,35,30],[1885,150,25,30],[2005,150,35,30]
     ],
     animals: [
-      { type: "seal", x: 380, y: 110, w: 22, h: 14, min: 350, max: 410, dir: 1 },
+      { type: "seal", x: 380, y: 96, w: 22, h: 14, min: 350, max: 410, dir: 1 },
       { type: "polar", x: 820, y: 64, w: 24, h: 28, min: 810, max: 895, dir: 1 },
       { type: "seal", x: 1120, y: 88, w: 22, h: 14, min: 1080, max: 1175, dir: -1 },
-      { type: "fox", x: 1515, y: 65, w: 20, h: 25, min: 1490, max: 1575, dir: 1 },
-      { type: "polar", x: 1795, y: 68, w: 24, h: 28, min: 1775, max: 1860, dir: -1 }
+      { type: "fox", x: 1515, y: 65, w: 20, h: 25, min: 1490, max: 1575, dir: 1 }
     ],
     crystals: [
       {x: 250, y: 90, caught: false}, {x: 360, y: 80, caught: false}, {x: 600, y: 70, caught: false},
@@ -183,25 +171,230 @@ const levels = [
     goal: { x: 2460, y: 94, w: 32, h: 40 },
     platforms: [
       [0,132,160,48],[190,112,75,12],[295,132,72,12],[400,96,90,12],
-      [530,120,72,12],[650,86,110,12],[805,116,65,12],[920,94,115,12],
-      [1070,126,70,12],[1180,100,105,12],[1320,78,100,12],[1450,118,78,12],
-      [1570,94,115,12],[1730,124,72,12],[1840,88,100,12],[1980,112,78,12],
-      [2090,82,105,12],[2240,118,75,12],[2350,94,110,12],[2480,122,100,12]
+      [530,120,72,12],[650,86,110,12],[805,116,65,12],[920,94,115,12]
     ],
     waters: [
-      [160,150,30,30],[265,150,30,30],[367,150,33,30],[490,150,40,30],
-      [602,150,48,30],[760,150,45,30],[870,150,50,30],[1035,150,35,30],
-      [1140,150,40,30],[1285,150,35,30],[1420,150,30,30],[1528,150,42,30],
-      [1685,150,45,30],[1802,150,38,30],[1940,150,40,30],[2058,150,32,30],
-      [2195,150,45,30],[2315,150,35,30]
+      [160,150,30,30],[265,150,30,30],[367,150,33,30],[490,150,40,30]
     ],
     animals: [
-      { type: "polar", x: 425, y: 68, w: 24, h: 28, min: 400, max: 470, dir: 1 },
-      { type: "seal", x: 680, y: 94, w: 22, h: 14, min: 655, max: 745, dir: -1 },
-      { type: "fox", x: 950, y: 69, w: 20, h: 25, min: 925, max: 1015, dir: 1 },
-      { type: "polar", x: 1205, y: 72, w: 24, h: 28, min: 1185, max: 1270, dir: 1 },
-      { type: "seal", x: 1580, y: 76, w: 22, h: 14, min: 1575, max: 1665, dir: -1 },
-      { type: "fox", x: 1860, y: 63, w: 20, h: 25, min: 1845, max: 1920, dir: 1 },
-      { type: "polar", x: 2115, y: 54, w: 24, h: 28, min: 2095, max: 2180, dir: -1 }
+      { type: "polar", x: 425, y: 68, w: 24, h: 28, min: 400, max: 470, dir: 1 }
     ],
     crystals: [
+      {x: 200, y: 80, caught: false}, {x: 320, y: 90, caught: false}, {x: 670, y: 60, caught: false}
+    ]
+  }
+];
+
+function loadLevel(idx) {
+  const lvl = levels[idx];
+  player.x = lvl.spawn.x;
+  player.y = lvl.spawn.y;
+  player.vx = 0; player.vy = 0;
+  platforms = lvl.platforms.map(p => ({ x: p[0], y: p[1], w: p[2], h: p[3] }));
+  waters = lvl.waters.map(w => ({ x: w[0], y: w[1], w: w[2], h: w[3] }));
+  animals = lvl.animals.map(a => ({ ...a }));
+  crystals = lvl.crystals.map(c => ({ ...c }));
+  goal = { ...lvl.goal };
+  document.getElementById("level").innerText = idx + 1;
+  hidePanel();
+}
+
+function showPanel(title, html) {
+  const p = document.getElementById("panel");
+  p.innerHTML = `<h1>${title}</h1>${html}`;
+  p.style.display = "block";
+}
+
+function hidePanel() {
+  document.getElementById("panel").style.display = "none";
+}
+
+function updateHUD() {
+  document.getElementById("lives").innerText = lives;
+  document.getElementById("score").innerText = String(score).padStart(4, '0');
+}
+
+function update() {
+  if (state !== "play") return;
+
+  let moveSpeed = (keys["KeyB"] || keys["b"]) ? DASH_SPEED : SPEED;
+
+  if (keys["ArrowLeft"] || keys["KeyA"] || keys["left"]) {
+    player.vx = -moveSpeed;
+    player.facing = -1;
+  } else if (keys["ArrowRight"] || keys["KeyD"] || keys["right"]) {
+    player.vx = moveSpeed;
+    player.facing = 1;
+  } else {
+    player.vx = 0;
+  }
+
+  if ((keys["ArrowUp"] || keys["KeyW"] || keys["Space"] || keys["jump"]) && player.grounded) {
+    player.vy = JUMP;
+    player.grounded = false;
+    playSound("jump");
+  }
+
+  player.vy += GRAVITY;
+  player.x += player.vx;
+  player.y += player.vy;
+
+  player.grounded = false;
+  for (let p of platforms) {
+    if (player.x < p.x + p.w && player.x + player.w > p.x &&
+        player.y + player.h >= p.y && player.y + player.h <= p.y + 12 && player.vy >= 0) {
+      player.y = p.y - player.h;
+      player.vy = 0;
+      player.grounded = true;
+    }
+  }
+
+  // Coleta de Cristais
+  crystals.forEach(c => {
+    if (!c.caught && player.x < c.x + 12 && player.x + player.w > c.x &&
+        player.y < c.y + 12 && player.y + player.h > c.y) {
+      c.caught = true;
+      score += 100;
+      updateHUD();
+      playSound("coin");
+    }
+  });
+
+  // Inimigos
+  for (let a of animals) {
+    a.x += a.dir * 0.8;
+    if (a.x < a.min || a.x > a.max) a.dir *= -1;
+
+    if (player.x < a.x + a.w && player.x + player.w > a.x &&
+        player.y < a.y + a.h && player.y + player.h > a.y) {
+      playerHurt();
+    }
+  }
+
+  // Queda na água
+  if (player.y > H + 20) {
+    playerHurt();
+  }
+
+  // Chegada no Objetivo
+  if (goal && player.x < goal.x + goal.w && player.x + player.w > goal.x &&
+      player.y < goal.y + goal.h && player.y + player.h > goal.y) {
+    levelIndex++;
+    if (levelIndex < levels.length) {
+      loadLevel(levelIndex);
+    } else {
+      state = "win";
+      showPanel("🏆 VOCÊ VENCEU!", `<p>Pontuação final: ${score}</p><button onclick="restartGame()">Jogar Novamente</button>`);
+    }
+  }
+
+  cameraX = player.x - W / 3;
+  if (cameraX < 0) cameraX = 0;
+}
+
+function playerHurt() {
+  playSound("hurt");
+  lives--;
+  updateHUD();
+  if (lives <= 0) {
+    state = "gameover";
+    showPanel("GAME OVER", `<p>Marcelo congelou!</p><button onclick="restartGame()">Tentar Novamente</button>`);
+  } else {
+    loadLevel(levelIndex);
+  }
+}
+
+function restartGame() {
+  lives = 3;
+  score = 0;
+  levelIndex = 0;
+  updateHUD();
+  state = "play";
+  loadLevel(0);
+}
+
+function render() {
+  ctx.save();
+  ctx.setTransform(canvas.width / VIEW_W, 0, 0, canvas.height / VIEW_H, 0, 0);
+
+  // Fundo
+  ctx.fillStyle = "#87c9ef";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.translate(-Math.floor(cameraX), 0);
+
+  // Plataformas
+  ctx.fillStyle = "#ffffff";
+  platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+
+  // Água
+  ctx.fillStyle = "#1d4e89";
+  waters.forEach(w => ctx.fillRect(w.x, w.y, w.w, w.h));
+
+  // Cristais
+  ctx.fillStyle = "#00ffff";
+  crystals.forEach(c => {
+    if (!c.caught) ctx.fillRect(c.x, c.y, 8, 8);
+  });
+
+  // Objetivo
+  if (goal) {
+    ctx.fillStyle = "#ffd700";
+    ctx.fillRect(goal.x, goal.y, goal.w, goal.h);
+  }
+
+  // Inimigos
+  ctx.fillStyle = "#e63946";
+  animals.forEach(a => ctx.fillRect(a.x, a.y, a.w, a.h));
+
+  // Jogador (Marcelo)
+  ctx.fillStyle = "#2a9d8f";
+  ctx.fillRect(player.x, player.y, player.w, player.h);
+
+  ctx.restore();
+}
+
+function loop() {
+  update();
+  render();
+  requestAnimationFrame(loop);
+}
+
+// Eventos de Teclado
+window.addEventListener("keydown", e => {
+  initAudio();
+  keys[e.code] = true;
+  if (state === "title" && e.code === "Enter") {
+    state = "play";
+    hidePanel();
+  }
+});
+
+window.addEventListener("keyup", e => {
+  keys[e.code] = false;
+});
+
+// Suporte Touch
+function bindTouch(id, keyName) {
+  const btn = document.getElementById(id);
+  if (!btn) return;
+  const start = (e) => { e.preventDefault(); initAudio(); keys[keyName] = true; btn.classList.add("pressed"); };
+  const end = (e) => { e.preventDefault(); keys[keyName] = false; btn.classList.remove("pressed"); };
+  btn.addEventListener("pointerdown", start);
+  btn.addEventListener("pointerup", end);
+  btn.addEventListener("pointercancel", end);
+}
+
+bindTouch("left", "left");
+bindTouch("right", "right");
+bindTouch("up", "jump");
+bindTouch("jump", "jump");
+bindTouch("action", "KeyB");
+
+// Início do Jogo
+loadLevel(0);
+showPanel("Marcelo no Alasca", "<p>Pressione <b>ENTER</b> ou toque no botão para jogar!</p><button onclick='state=\"play\"; hidePanel();'>Iniciar Jogo</button>");
+loop();
+</script>
+</body>
+</html>
