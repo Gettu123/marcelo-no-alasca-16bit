@@ -68,6 +68,10 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
+// Carregar Sprite Sheet do Marcelo
+const playerSprite = new Image();
+playerSprite.src = "avatar-reference.jpg";
+
 const VIEW_W = 320, VIEW_H = 180;
 const W = VIEW_W, H = VIEW_H;
 const GRAVITY = 0.32;
@@ -81,20 +85,15 @@ let levelIndex = 0;
 let lives = 3;
 let score = 0;
 let cameraX = 0;
-let dashTimer = 0;
-let dashCooldown = 0;
 let audioCtx = null;
-
-const ANIM = { IDLE: 0, JUMP: 1, RUN: 2 };
 
 const player = {
   x: 22, y: 100, w: 22, h: 32,
   vx: 0, vy: 0,
   grounded: false,
   facing: 1,
-  animState: ANIM.IDLE,
-  frame: 0,
-  frameTimer: 0
+  animIndex: 0, // Índice do sprite (0 a 15)
+  animTimer: 0
 };
 
 let platforms = [];
@@ -249,6 +248,19 @@ function update() {
     }
   }
 
+  // Animação do Marcelo (Mudar quadro do Sprite)
+  player.animTimer++;
+  if (!player.grounded) {
+    // Pulo (quadros 4, 5, 6, 7)
+    player.animIndex = 4 + Math.floor((player.animTimer / 8) % 4);
+  } else if (Math.abs(player.vx) > 0) {
+    // Corrida (quadros 8, 9, 10, 11)
+    player.animIndex = 8 + Math.floor((player.animTimer / 6) % 4);
+  } else {
+    // Parado (quadros 0, 1, 2, 3)
+    player.animIndex = Math.floor((player.animTimer / 12) % 4);
+  }
+
   // Coleta de Cristais
   crystals.forEach(c => {
     if (!c.caught && player.x < c.x + 12 && player.x + player.w > c.x &&
@@ -271,12 +283,12 @@ function update() {
     }
   }
 
-  // Queda na água
+  // Queda
   if (player.y > H + 20) {
     playerHurt();
   }
 
-  // Chegada no Objetivo
+  // Objetivo
   if (goal && player.x < goal.x + goal.w && player.x + player.w > goal.x &&
       player.y < goal.y + goal.h && player.y + player.h > goal.y) {
     levelIndex++;
@@ -313,19 +325,54 @@ function restartGame() {
   loadLevel(0);
 }
 
+function drawMarcelo() {
+  if (!playerSprite.complete) {
+    // Fallback caso a imagem ainda não tenha carregado
+    ctx.fillStyle = "#2a9d8f";
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+    return;
+  }
+
+  // A grade da imagem avatar-reference.jpg tem 4 colunas x 4 linhas
+  const cols = 4;
+  const col = player.animIndex % cols;
+  const row = Math.floor(player.animIndex / cols);
+
+  const frameW = playerSprite.width / 4;
+  const frameH = playerSprite.height / 4;
+
+  ctx.save();
+  ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
+  if (player.facing === -1) {
+    ctx.scale(-1, 1);
+  }
+
+  // Desenha o quadro recortado do Marcelo
+  ctx.drawImage(
+    playerSprite,
+    col * frameW, row * frameH, frameW, frameH, // Corte na imagem original
+    -player.w / 2 - 4, -player.h / 2 - 4, player.w + 8, player.h + 8 // Posição no jogo
+  );
+  ctx.restore();
+}
+
 function render() {
   ctx.save();
   ctx.setTransform(canvas.width / VIEW_W, 0, 0, canvas.height / VIEW_H, 0, 0);
 
-  // Fundo
+  // Fundo Neve
   ctx.fillStyle = "#87c9ef";
   ctx.fillRect(0, 0, W, H);
 
   ctx.translate(-Math.floor(cameraX), 0);
 
-  // Plataformas
-  ctx.fillStyle = "#ffffff";
-  platforms.forEach(p => ctx.fillRect(p.x, p.y, p.w, p.h));
+  // Plataformas de Gelo
+  platforms.forEach(p => {
+    ctx.fillStyle = "#e0f7fa";
+    ctx.fillRect(p.x, p.y, p.w, p.h);
+    ctx.fillStyle = "#4dd0e1";
+    ctx.fillRect(p.x, p.y, p.w, 3);
+  });
 
   // Água
   ctx.fillStyle = "#1d4e89";
@@ -337,7 +384,7 @@ function render() {
     if (!c.caught) ctx.fillRect(c.x, c.y, 8, 8);
   });
 
-  // Objetivo
+  // Goal / Bandeira
   if (goal) {
     ctx.fillStyle = "#ffd700";
     ctx.fillRect(goal.x, goal.y, goal.w, goal.h);
@@ -347,9 +394,8 @@ function render() {
   ctx.fillStyle = "#e63946";
   animals.forEach(a => ctx.fillRect(a.x, a.y, a.w, a.h));
 
-  // Jogador (Marcelo)
-  ctx.fillStyle = "#2a9d8f";
-  ctx.fillRect(player.x, player.y, player.w, player.h);
+  // Desenhar Marcelo com a Imagem Animada
+  drawMarcelo();
 
   ctx.restore();
 }
