@@ -1,221 +1,33 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Marcelo no Alasca — Cel-Shaded Adventure</title>
-<style>
-  *{box-sizing:border-box}
-  html,body{margin:0;width:100%;height:100%;background:#071522;overflow:hidden;font-family:monospace}
-  body{display:flex;align-items:center;justify-content:center}
-  #gameWrap{position:relative;width:100vw;height:100vh;max-width:none;max-height:none;display:flex;align-items:center;justify-content:center;background:#071522}
-  canvas{width:100%;height:100%;display:block;background:#87c9ef;image-rendering:pixelated;image-rendering:crisp-edges;border:0;box-shadow:none;object-fit:contain}
-  #hud{position:absolute;left:12px;right:12px;top:10px;display:flex;justify-content:space-between;pointer-events:none;color:#fff;text-shadow:2px 2px #000;font-size:14px}
-  .hudBox{background:#101820dd;border:2px solid #d9eef5;padding:5px 8px}
-  #message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
-  #panel{display:none;min-width:270px;max-width:82%;padding:20px;background:#101820ee;border:4px solid #f2f6f7;color:white;text-align:center;box-shadow:8px 8px #0008}
-  #panel h1{margin:0 0 10px;font-size:24px;color:#fff}
-  #panel p{margin:7px 0;line-height:1.4}
-  button{font:inherit;font-weight:bold;cursor:pointer;border:3px solid #17212b;background:#e7f7ff;color:#17212b;padding:9px 14px;margin:5px}
-  #touch{position:absolute;left:0;right:0;bottom:clamp(10px,3vw,24px);display:flex;justify-content:space-between;align-items:end;padding:0 clamp(14px,4vw,42px);pointer-events:none;z-index:5}
-  .dpad{position:relative;width:126px;height:126px;pointer-events:auto}
-  .actionPad{display:flex;align-items:flex-end;gap:12px;pointer-events:auto}
-  .touchBtn{position:absolute;width:48px;height:48px;border:3px solid #f4fbff;background:#162431dd;color:#fff;font:bold 22px monospace;border-radius:10px;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:4px 4px 0 #0009;display:flex;align-items:center;justify-content:center}
-  .touchBtn:active,.touchBtn.pressed{transform:translate(2px,2px);box-shadow:2px 2px 0 #0009;background:#38566a}
-  .dpad .up{left:39px;top:0}.dpad .left{left:0;top:39px}.dpad .right{right:0;top:39px}.dpad .down{left:39px;bottom:0}
-  .actionPad .touchBtn{position:relative;left:auto;top:auto;right:auto;bottom:auto;width:62px;height:62px;border-radius:50%}
-  .actionPad .a{background:#9b2d3a}.actionPad .b{background:#2d638f}
-  .fsBtn{position:absolute;right:12px;top:10px;z-index:6;width:38px;height:34px;border:2px solid #fff;background:#101820cc;color:#fff;font:20px monospace;border-radius:6px;cursor:pointer}
-  #rotateMsg{display:none;position:fixed;inset:0;z-index:100;background:#071522;color:#fff;align-items:center;justify-content:center;text-align:center;font:18px monospace}
-  #rotateMsg div{padding:30px;border:3px solid #d9eef5;background:#101820;box-shadow:8px 8px #0008}
-  #rotateMsg span{font-size:12px;opacity:.8}
-  @media (min-width:800px){#touch{display:none}}
-  @media (orientation:portrait) and (max-width:799px){#rotateMsg{display:flex}}
-  @media (max-height:430px) and (orientation:landscape){#hud{top:6px;font-size:11px}.hudBox{padding:3px 6px}.fsBtn{top:6px;right:7px}.touchBtn{width:42px;height:42px}.dpad{width:108px;height:108px}.dpad .up{left:33px}.dpad .left{top:33px}.dpad .right{top:33px}.dpad .down{left:33px}.actionPad .touchBtn{width:54px;height:54px}}
-  .small{font-size:11px;opacity:.85}
-  body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none}
-  @supports(padding: max(0px)){#touch{padding-bottom:max(10px,env(safe-area-inset-bottom));padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}}
-</style>
-</head>
-<body>
-<div id="gameWrap">
-  <canvas id="game" width="480" height="270" aria-label="Jogo Anime Cel-Shaded"></canvas>
-  <button id="fsBtn" class="fsBtn" aria-label="Tela cheia">⛶</button>
-  <div id="rotateMsg"><div>📱↻<br><b>Vire o celular</b><br><span>Jogue na horizontal</span></div></div>
+name: Deploy static content to Pages
 
-  <div id="hud">
-    <div class="hudBox">❄ ALASCA <span id="level">1</span></div>
-    <div class="hudBox">VIDAS: <span id="lives">3</span> &nbsp; ★ <span id="score">0000</span></div>
-  </div>
+on:
+  push:
+    branches: ["main"]
 
-  <div id="message">
-    <div id="panel"></div>
-  </div>
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
-  <div id="touch">
-    <div class="dpad">
-      <button class="touchBtn up" id="up">▲</button>
-      <button class="touchBtn left" id="left">◀</button>
-      <button class="touchBtn right" id="right">▶</button>
-      <button class="touchBtn down" id="down">▼</button>
-    </div>
-    <div class="actionPad">
-      <button class="touchBtn b" id="action">B</button>
-      <button class="touchBtn a" id="jump">A</button>
-    </div>
-  </div>
-</div>
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
-<script>
-"use strict";
-
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-ctx.imageSmoothingEnabled = false;
-
-const VIEW_W = 320, VIEW_H = 180;
-ctx.setTransform(canvas.width / VIEW_W, 0, 0, canvas.height / VIEW_H, 0, 0);
-
-const W = VIEW_W, H = VIEW_H;
-const GRAVITY = 0.32;
-const JUMP = -5.8;
-const SPEED = 1.9;
-const DASH_SPEED = 4.5;
-
-const keys = {};
-let state = "title";
-let levelIndex = 0;
-let lives = 3;
-let score = 0;
-let cameraX = 0;
-let particles = [];
-let dashTimer = 0;
-let dashCooldown = 0;
-
-// Carregando referência de imagem do avatar do usuário
-const avatarImg = new Image();
-avatarImg.src = "avatar-reference.png";
-
-// Definições de Estados Animados baseados nas 4 linhas da Imagem do Usuário
-const ANIM = {
-  IDLE: 0,     // Linha 1 (Mãos nos Bolsos)
-  JUMP: 1,     // Linha 2 (Pulo Dinâmico)
-  RUN: 2,      // Linha 3 (Fugindo do Urso)
-  STORM: 3     // Linha 4 (Protegendo da Nevasca)
-};
-
-const player = {
-  x: 20, y: 100, w: 24, h: 32,
-  vx: 0, vy: 0,
-  grounded: false,
-  facing: 1,
-  animState: ANIM.IDLE,
-  frame: 0,
-  frameTimer: 0
-};
-
-let platforms = [];
-let waters = [];
-let animals = [];
-let goal = null;
-
-const levels = [
-  {
-    name:"Travessia do Gelo",
-    width: 2200,
-    spawn:{x:22,y:112},
-    goal:{x:2080,y:94,w:32,h:40},
-    platforms:[
-      [0,140,190,40],[220,124,82,12],[332,110,90,12],[454,132,74,12],
-      [565,102,92,12],[690,124,80,12],[805,92,110,12],[952,118,78,12],
-      [1072,102,120,12],[1240,132,90,12],[1368,106,74,12],[1485,90,110,12],
-      [1650,120,90,12],[1775,96,110,12],[1910,122,95,12],[2040,128,120,12]
-    ],
-    waters:[
-      [190,150,30,30],[302,150,30,30],[422,150,32,30],[528,150,37,30],
-      [657,150,33,30],[770,150,35,30],[915,150,37,30],[1030,150,42,30],
-      [1192,150,48,30],[1330,150,38,30],[1442,150,43,30],[1595,150,55,30],
-      [1740,150,35,30],[1885,150,25,30],[2005,150,35,30]
-    ],
-    animals:[
-      {type:"seal",x:380,y:106,w:22,h:18,min:350,max:410,dir:1},
-      {type:"polar",x:820,y:64,w:20,h:28,min:810,max:895,dir:1},
-      {type:"seal",x:1120,y:84,w:22,h:18,min:1080,max:1175,dir:-1},
-      {type:"fox",x:1515,y:65,w:20,h:25,min:1490,max:1575,dir:1},
-      {type:"polar",x:1795,y:68,w:20,h:28,min:1775,max:1860,dir:-1}
-    ]
-  },
-  {
-    name:"Tempestade Branca",
-    width: 2600,
-    spawn:{x:20,y:100},
-    goal:{x:2460,y:94,w:32,h:40},
-    platforms:[
-      [0,132,160,48],[190,112,75,12],[295,132,72,12],[400,96,90,12],
-      [530,120,72,12],[650,86,110,12],[805,116,65,12],[920,94,115,12],
-      [1070,126,70,12],[1180,100,105,12],[1320,78,100,12],[1450,118,78,12],
-      [1570,94,115,12],[1730,124,72,12],[1840,88,100,12],[1980,112,78,12],
-      [2090,82,105,12],[2240,118,75,12],[2350,94,110,12],[2480,122,100,12]
-    ],
-    waters:[
-      [160,150,30,30],[265,150,30,30],[367,150,33,30],[490,150,40,30],
-      [602,150,48,30],[760,150,45,30],[870,150,50,30],[1035,150,35,30],
-      [1140,150,40,30],[1285,150,35,30],[1420,150,30,30],[1528,150,42,30],
-      [1685,150,45,30],[1802,150,38,30],[1940,150,40,30],[2058,150,32,30],
-      [2195,150,45,30],[2315,150,35,30]
-    ],
-    animals:[
-      {type:"polar",x:425,y:68,w:20,h:28,min:400,max:470,dir:1},
-      {type:"seal",x:680,y:94,w:22,h:18,min:655,max:745,dir:-1},
-      {type:"fox",x:950,y:69,w:20,h:25,min:925,max:1015,dir:1},
-      {type:"polar",x:1205,y:72,w:20,h:28,min:1185,max:1270,dir:1},
-      {type:"seal",x:1580,y:76,w:22,h:18,min:1575,max:1665,dir:-1},
-      {type:"fox",x:1860,y:63,w:20,h:25,min:1845,max:1920,dir:1},
-      {type:"polar",x:2115,y:54,w:20,h:28,min:2095,max:2180,dir:-1}
-    ]
-  }
-];
-
-function initLevel() {
-  const current = levels[levelIndex];
-  platforms = current.platforms;
-  waters = current.waters;
-  animals = JSON.parse(JSON.stringify(current.animals));
-  goal = current.goal;
-  player.x = current.spawn.x;
-  player.y = current.spawn.y;
-  player.vx = 0; player.vy = 0;
-  player.grounded = false;
-  dashTimer = 0;
-  cameraX = 0;
-  particles = [];
-  document.getElementById("level").innerText = levelIndex + 1;
-  document.getElementById("lives").innerText = lives;
-  document.getElementById("score").innerText = String(score).padStart(4, '0');
-}
-
-function showPanel(html) {
-  const p = document.getElementById("panel");
-  p.innerHTML = html;
-  p.style.display = "block";
-}
-
-function hidePanel() {
-  document.getElementById("panel").style.display = "none";
-}
-
-window.addEventListener("keydown", e => {
-  keys[e.code] = true;
-  if(e.code === "Enter") handleConfirm();
-  if(e.code === "KeyR") { lives=3; score=0; levelIndex=0; state="game"; hidePanel(); initLevel(); }
-});
-window.addEventListener("keyup", e => keys[e.code] = false);
-
-// Eventos de toque Mobile
-const touchBind = (id, k) => {
-  const b = document.getElementById(id);
-  if(!b) return;
-  const start = (e) => { e.preventDefault(); keys[k] = true; b.classList.add("pressed"); if(state!=="game" && k==="Enter") handleConfirm(); };
-  const end = (e) => { e.preventDefault(); keys[k] = false; b.classList.remove("pressed"); };
-  b.addEventListener("touchstart", start); b.addEventListener("touchend", end);
-};
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
