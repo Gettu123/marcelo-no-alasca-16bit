@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Marcelo no Alasca — 8-Bit Adventure</title>
+<style>
+  *{box-sizing:border-box}
+  html,body{margin:0;width:100%;height:100%;background:#071522;overflow:hidden;font-family:monospace}
+  body{display:flex;align-items:center;justify-content:center}
+  #gameWrap{position:relative;width:100vw;height:100vh;max-width:none;max-height:none;display:flex;align-items:center;justify-content:center;background:#071522}
+  canvas{width:100%;height:100%;display:block;background:#87c9ef;image-rendering:pixelated;image-rendering:crisp-edges;border:0;box-shadow:none;object-fit:contain}
+  #hud{position:absolute;left:12px;right:12px;top:10px;display:flex;justify-content:space-between;pointer-events:none;color:#fff;text-shadow:2px 2px #000;font-size:14px}
+  .hudBox{background:#101820dd;border:2px solid #d9eef5;padding:5px 8px}
+  #message{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  #panel{display:none;min-width:270px;max-width:82%;padding:20px;background:#101820ee;border:4px solid #f2f6f7;color:white;text-align:center;box-shadow:8px 8px #0008}
+  #panel h1{margin:0 0 10px;font-size:24px;color:#fff}
+  #panel p{margin:7px 0;line-height:1.4}
+  button{font:inherit;font-weight:bold;cursor:pointer;border:3px solid #17212b;background:#e7f7ff;color:#17212b;padding:9px 14px;margin:5px}
+  #touch{position:absolute;left:0;right:0;bottom:clamp(10px,3vw,24px);display:flex;justify-content:space-between;align-items:end;padding:0 clamp(14px,4vw,42px);pointer-events:none;z-index:5}
+  .dpad{position:relative;width:126px;height:126px;pointer-events:auto}
+  .actionPad{display:flex;align-items:flex-end;gap:12px;pointer-events:auto}
+  .touchBtn{position:absolute;width:48px;height:48px;border:3px solid #f4fbff;background:#162431dd;color:#fff;font:bold 22px monospace;border-radius:10px;touch-action:none;user-select:none;-webkit-user-select:none;box-shadow:4px 4px 0 #0009;display:flex;align-items:center;justify-content:center}
+  .touchBtn:active,.touchBtn.pressed{transform:translate(2px,2px);box-shadow:2px 2px 0 #0009;background:#38566a}
+  .dpad .up{left:39px;top:0}.dpad .left{left:0;top:39px}.dpad .right{right:0;top:39px}.dpad .down{left:39px;bottom:0}
+  .actionPad .touchBtn{position:relative;left:auto;top:auto;right:auto;bottom:auto;width:62px;height:62px;border-radius:50%}
+  .actionPad .a{background:#9b2d3a}.actionPad .b{background:#2d638f}
+  .fsBtn{position:absolute;right:12px;top:10px;z-index:6;width:38px;height:34px;border:2px solid #fff;background:#101820cc;color:#fff;font:20px monospace;border-radius:6px;cursor:pointer}
+  #rotateMsg{display:none;position:fixed;inset:0;z-index:100;background:#071522;color:#fff;align-items:center;justify-content:center;text-align:center;font:18px monospace}
+  #rotateMsg div{padding:30px;border:3px solid #d9eef5;background:#101820;box-shadow:8px 8px #0008}
+  #rotateMsg span{font-size:12px;opacity:.8}
+  @media (min-width:800px){#touch{display:none}}
+  @media (orientation:portrait) and (max-width:799px){#rotateMsg{display:flex}}
+  @media (max-height:430px) and (orientation:landscape){#hud{top:6px;font-size:11px}.hudBox{padding:3px 6px}.fsBtn{top:6px;right:7px}.touchBtn{width:42px;height:42px}.dpad{width:108px;height:108px}.dpad .up{left:33px}.dpad .left{top:33px}.dpad .right{top:33px}.dpad .down{left:33px}.actionPad .touchBtn{width:54px;height:54px}}
+  .small{font-size:11px;opacity:.85}
+  body{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none;touch-action:none}
+  @supports(padding: max(0px)){#touch{padding-bottom:max(10px,env(safe-area-inset-bottom));padding-left:max(14px,env(safe-area-inset-left));padding-right:max(14px,env(safe-area-inset-right))}}
+</style>
+</head>
+<body>
+<div id="gameWrap">
+  <canvas id="game" width="480" height="270" aria-label="Jogo 16-bit"></canvas>
+  <button id="fsBtn" class="fsBtn" aria-label="Tela cheia">⛶</button>
+  <div id="rotateMsg"><div>📱↻<br><b>Vire o celular</b><br><span>Jogue na horizontal</span></div></div>
+
+  <div id="hud">
+    <div class="hudBox">❄ ALASCA <span id="level">1</span></div>
+    <div class="hudBox">VIDAS: <span id="lives">3</span> &nbsp; ★ <span id="score">0000</span></div>
+  </div>
+
+  <div id="message">
+    <div id="panel"></div>
+  </div>
+
+  <div id="touch">
+    <div class="dpad">
+      <button class="touchBtn up" id="up">▲</button>
+      <button class="touchBtn left" id="left">◀</button>
+      <button class="touchBtn right" id="right">▶</button>
+      <button class="touchBtn down" id="down">▼</button>
+    </div>
+    <div class="actionPad">
+      <button class="touchBtn b" id="action">B</button>
+      <button class="touchBtn a" id="jump">A</button>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/*
+  MARCELO NO ALASCA — jogo 8-bit em HTML5 Canvas
+  Controles:
+  A/D ou ←/→ = andar
+  Espaço/W/↑ = pular
+  R = reiniciar fase
+  Enter = iniciar/continuar
+*/
+
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+// Mundo lógico 320x180, escalado internamente para 480x270 (16:9).
+const VIEW_W = 320, VIEW_H = 180;
+ctx.setTransform(canvas.width / VIEW_W, 0, 0, canvas.height / VIEW_H, 0, 0);
+
+const W = VIEW_W, H = VIEW_H;
+const TILE = 16;
+const GRAVITY = 0.32;
+const JUMP = -5.8;
+const SPEED = 1.9;
+const DASH_SPEED = 4.8;
+let dashTimer = 0;
+
+const keys = {};
+let state = "title";
+let levelIndex = 0;
+let lives = 3;
+let score = 0;
+let cameraX = 0;
+let last = 0;
+let particles = [];
+let animals = [];
+let platforms = [];
+let waters = [];
+let goal = null;
+let spawn = {x:20,y:100};
+
+const levels = [
+  {
+    name:"Travessia do Gelo",
+    width: 2200,
+    spawn:{x:22,y:112},
+    goal:{x:2080,y:94,w:32,h:40},
+    platforms:[
+      [0,140,190,40],[220,124,82,12],[332,110,90,12],[454,132,74,12],
+      [565,102,92,12],[690,124,80,12],[805,92,110,12],[952,118,78,12],
+      [1072,102,120,12],[1240,132,90,12],[1368,106,74,12],[1485,90,110,12],
+      [1650,120,90,12],[1775,96,110,12],[1910,122,95,12],[2040,128,120,12]
+    ],
+    waters:[
+      [190,150,30,30],[302,150,30,30],[422,150,32,30],[528,150,37,30],
+      [657,150,33,30],[770,150,35,30],[915,150,37,30],[1030,150,42,30],
+      [1192,150,48,30],[1330,150,38,30],[1442,150,43,30],[1595,150,55,30],
+      [1740,150,35,30],[1885,150,25,30],[2005,150,35,30]
+    ],
+    animals:[
+      {type:"seal",x:380,y:82,w:22,h:18,min:350,max:410,dir:1},
+      {type:"polar",x:820,y:63,w:20,h:28,min:810,max:895,dir:1},
+      {type:"seal",x:1120,y:74,w:22,h:18,min:1080,max:1175,dir:-1},
+      {type:"fox",x:1515,y:61,w:20,h:25,min:1490,max:1575,dir:1},
+      {type:"polar",x:1795,y:67,w:20,h:28,min:1775,max:1860,dir:-1}
+    ]
+  },
+  {
+    name:"Tempestade Branca",
+    width: 2600,
+    spawn:{x:20,y:100},
+    goal:{x:2460,y:94,w:32,h:40},
+    platforms:[
+      [0,132,160,48],[190,112,75,12],[295,132,72,12],[400,96,90,12],
+      [530,120,72,12],[650,86,110,12],[805,116,65,12],[920,94,115,12],
+      [1070,126,70,12],[1180,100,105,12],[1320,78,100,12],[1450,118,78,12],
+      [1570,94,115,12],[1730,124,72,12],[1840,88,100,12],[1980,112,78,12],
+      [2090,82,105,12],[2240,118,75,12],[2350,94,110,12],[2480,122,100,12]
+    ],
+    waters:[
+      [160,150,30,30],[265,150,30,30],[367,150,33,30],[490,150,40,30],
+      [602,150,48,30],[760,150,45,30],[870,150,50,30],[1035,150,35,30],
+      [1140,150,40,30],[1285,150,35,30],[1420,150,30,30],[1528,150,42,30],
+      [1685,150,45,30],[1802,150,38,30],[1940,150,40,30],[2058,150,32,30],
+      [2195,150,45,30],[2315,150,35,30]
+    ],
+    animals:[
+      {type:"polar",x:425,y:68,w:20,h:28,min:400,max:470,dir:1},
+      {type:"seal",x:680,y:68,w:22,h:18,min:655,max:745,dir:-1},
+      {type:"fox",x:950,y:67,w:20,h:25,min:925,max:1015,dir:1},
+      {type:"polar",x:1205,y:70,w:20,h:28,min:1185,max:1270,dir:1},
+      {type:"seal",x:1580,y:70,w:22,h:18,min:1575,max:1665,dir:-1},
+      {type:"fox",x:1860,y:62,w:20,h:25,min:1845,max:1920,dir:1},
+      {type:"polar",x:2115,y:54,w:20,h:28,min:2095,max:2180,dir:-1},
+      {type:"seal",x:2380,y:76,w:22,h:18,min:2360,max:2440,dir:1}
+    ]
+  },
+  {
+    name:"O Último Salto",
+    width: 3000,
+    spawn:{x:20,y:100},
+    goal:{x:2860,y:92,w:32,h:42},
+    platforms:[
+      [0,136,140,44],[165,105,70,12],[260,125,70,12],[355,88,72,12],
+      [455,116,80,12],[565,78,100,12],[700,110,65,12],[805,84,90,12],
+      [930,118,70,12],[1030,74,100,12],[1160,104,75,12],[1270,80,105,12],
+      [1410,120,75,12],[1510,92,80,12],[1620,68,105,12],[1760,112,70,12],
+      [1870,80,95,12],[2010,120,75,12],[2120,88,100,12],[2260,66,95,12],
+      [2390,112,75,12],[2490,82,105,12],[2630,120,80,12],[2740,90,105,12],
+      [2860,120,100,12]
+    ],
+    waters:[
+      [140,150,25,30],[235,150,25,30],[330,150,25,30],[427,150,28,30],
+      [535,150,30,30],[665,150,35,30],[765,150,40,30],[895,150,35,30],
+      [1000,150,30,30],[1130,150,30,30],[1235,150,35,30],[1375,150,35,30],
+      [1485,150,25,30],[1590,150,30,30],[1725,150,35,30],[1835,150,35,30],
+      [1965,150,45,30],[2085,150,35,30],[2220,150,40,30],[2355,150,35,30],
+      [2465,150,25,30],[2595,150,35,30],[2715,150,25,30],[2845,150,15,30]
+    ],
+    animals:[
+      {type:"fox",x:285,y:96,w:20,h:25,min:265,max:320,dir:1},
+      {type:"polar",x:590,y:48,w:20,h:28,min:570,max:650,dir:-1},
+      {type:"seal",x:1038,y:56,w:22,h:18,min:1030,max:1115,dir:1},
+      {type:"fox",x:1280,y:55,w:20,h:25,min:1270,max:1350,dir:-1},
+      {type:"polar",x:1635,y:40,w:20,h:28,min:1625,max:1710,dir:1},
+      {type:"seal",x:1880,y:62,w:22,h:18,min:1870,max:1950,dir:-1},
+      {type:"fox",x:2140,y:63,w:20,h:25,min:2125,max:2200,dir:1},
+      {type:"polar",x:2510,y:54,w:20,h:28,min:2500,max:2580,dir:-1},
+      {type:"seal",x:2760,y:62,w:22,h:18,min:2750,max:2825,dir:1}
+    ]
+  }
+];
+
+const player = {
+  x:20,y:100,w:16,h:28,vx:0,vy:0,onGround:false,dead:false,inv:0,frame:0,anim:0
+};
+
+function resetLevel(){
+  const L = levels[levelIndex];
+  platforms = L.platforms;
+  waters = L.waters;
+  animals = L.animals.map(a=>({...a}));
+  goal = {...L.goal};
+  spawn = {...L.spawn};
+  player.x=spawn.x; player.y=spawn.y; player.vx=0; player.vy=0;
+  player.dead=false; player.inv=60; cameraX=0;
+  updateHud();
+}
+
+function startGame(){
+  state="play"; lives=3; score=0; levelIndex=0; resetLevel();
+}
+
+function nextLevel(){
+  score += 1000;
+  if(levelIndex < levels.length-1){ levelIndex++; resetLevel(); }
+  else { state="win"; showPanel("VOCÊ CHEGOU!","Marcelo atravessou o gelo e encontrou o iglu!<br><br>Pontuação: "+String(score).padStart(4,"0"),"JOGAR NOVAMENTE"); }
+  updateHud();
+}
+
+function die(reason){
+  if(player.inv>0 || state!=="play") return;
+  lives--;
+  player.dead=true;
+  if(lives<=0){
+    state="gameover";
+    showPanel("FIM DE JOGO",reason+"<br><br>Você ficou sem vidas.<br>Pontuação: "+String(score).padStart(4,"0"),"TENTAR NOVAMENTE");
+  } else {
+    state="respawn";
+    showPanel("OPS!",reason+"<br><br>Vidas restantes: "+lives,"CONTINUAR");
+  }
+  updateHud();
+}
+
+function continueAfterDeath(){
+  if(state==="respawn"){ hidePanel(); state="play"; resetLevel(); }
+  else if(state==="gameover" || state==="win"){ hidePanel(); startGame(); }
+}
+
+function showPanel(title,text,button){
+  const p=document.getElementById("panel");
+  p.innerHTML="<h1>"+title+"</h1><p>"+text+"</p><button id='panelBtn'>"+button+"</button><p class='small'>Enter também funciona</p>";
+  p.style.display="block";
+  document.getElementById("panelBtn").onclick=continueAfterDeath;
+}
+function hidePanel(){document.getElementById("panel").style.display="none"}
+
+function updateHud(){
+  document.getElementById("level").textContent=(levelIndex+1);
+  document.getElementById("lives").textContent=lives;
+  document.getElementById("score").textContent=String(score).padStart(4,"0");
+}
+
+function rectsOverlap(a,b){
+  return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+}
+
+function action(){
+  if(state==="title"){startGame();return}
+  if(state!=="play") return;
+  dashTimer = 10;
+  player.vx = (player.vx < 0 ? -DASH_SPEED : DASH_SPEED);
+  beep(180,0.08,"sawtooth");
+}
+function jump(){
+  if(state==="title"){startGame();return}
+  if(state!=="play") return;
+  if(player.onGround){player.vy=JUMP;player.onGround=false; beep(520,0.06,"square")}
+}
+
+function update(dt){
+  if(state!=="play") return;
+
+  if(dashTimer>0) dashTimer--;
+  if(keys.ArrowLeft||keys.a) player.vx=-(dashTimer>0?DASH_SPEED:SPEED);
+  else if(keys.ArrowRight||keys.d) player.vx=(dashTimer>0?DASH_SPEED:SPEED);
+  else player.vx*=0.72;
+
+  if((keys.ArrowUp||keys.w||keys[" "]) && player.onGround) jump();
+
+  player.x += player.vx;
+  player.x = Math.max(0,Math.min(levels[levelIndex].width-player.w,player.x));
+
+  const oldBottom=player.y+player.h;
+  player.vy += GRAVITY;
+  player.y += player.vy;
+  player.onGround=false;
+
+  for(const p of platforms){
+    const plat={x:p[0],y:p[1],w:p[2],h:p[3]};
+    if(player.vy>=0 && player.x+player.w>plat.x && player.x<plat.x+plat.w &&
+       oldBottom<=plat.y+2 && player.y+player.h>=plat.y){
+      player.y=plat.y-player.h;
+      player.vy=0;
+      player.onGround=true;
+    }
+  }
+
+  for(const a of animals){
+    a.x += a.dir*0.35;
+    if(a.x<a.min || a.x>a.max){a.dir*=-1;a.x=Math.max(a.min,Math.min(a.max,a.x))}
+    const hit={x:a.x+2,y:a.y+2,w:a.w-4,h:a.h-3};
+    if(rectsOverlap(player,hit)) die("Um animal bloqueou seu caminho!");
+  }
+
+  for(const w of waters){
+    const water={x:w[0],y:w[1],w:w[2],h:w[3]};
+    if(rectsOverlap(player,water)) die("Você caiu na água gelada!");
+  }
+
+  if(player.y>H+20) die("Você caiu no oceano congelante!");
+
+  if(player.inv>0) player.inv--;
+  player.anim += Math.abs(player.vx);
+  player.frame = Math.floor(player.anim/4)%4;
+
+  const g={x:goal.x,y:goal.y,w:goal.w,h:goal.h};
+  if(rectsOverlap(player,g)) nextLevel();
+
+  cameraX += ((player.x-110)-cameraX)*0.10;
+  cameraX=Math.max(0,Math.min(levels[levelIndex].width-W,cameraX));
+}
+
+function drawSky(){
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,"#5aa8d6"); grad.addColorStop(1,"#d9f2ff");
+  ctx.fillStyle=grad;ctx.fillRect(0,0,W,H);
+
+  // lua
+  ctx.fillStyle="#f4f0d0";ctx.fillRect(250,18,12,12);ctx.fillRect(246,22,20,4);
+  // nuvens
+  for(let x=0;x<400;x+=90){
+    let sx=x-cameraX*0.12;
+    ctx.fillStyle="#ffffff55";
+    ctx.fillRect(((sx%380)+380)%380,28,45,5);
+    ctx.fillRect(((sx+12)%380+380)%380,23,28,10);
+  }
+}
+
+function drawWater(){
+  for(const w of waters){
+    const x=w[0]-cameraX,y=w[1];
+    ctx.fillStyle="#216b99";ctx.fillRect(x,y,w[2],w[3]);
+    ctx.fillStyle="#55b9dc";
+    for(let xx=0;xx<w[2];xx+=8){
+      ctx.fillRect(x+xx,y+2,5,2);
+      if((xx/8)%2===0)ctx.fillRect(x+xx+3,y+8,5,2);
+    }
+    ctx.fillStyle="#103e60";ctx.fillRect(x,y+w[3]-4,w[2],4);
+  }
+}
+
+function drawPlatform(p){
+  const x=p[0]-cameraX,y=p[1];
+  // gelo
+  ctx.fillStyle="#dff8ff";ctx.fillRect(x,y,p[2],p[3]);
+  ctx.fillStyle="#a7dced";ctx.fillRect(x,y,p[2],3);
+  ctx.fillStyle="#6eb4d0";
+  for(let xx=5;xx<p[2]-3;xx+=13)ctx.fillRect(x+xx,y+5,4,3);
+  ctx.fillStyle="#4b91b0";
+  for(let xx=9;xx<p[2]-2;xx+=19)ctx.fillRect(x+xx,y+10,3,3);
+}
+
+function drawIgloo(){
+  const x=goal.x-cameraX,y=goal.y;
+  ctx.fillStyle="#d9f7ff";
+  for(let r=0;r<4;r++){
+    const yy=y+12-r*6;
+    const ww=goal.w+10-r*6;
+    ctx.fillRect(x+(goal.w+10-ww)/2,yy,ww,6);
+  }
+  ctx.fillStyle="#8cc6da";
+  ctx.fillRect(x+5,y+26,8,14);
+  ctx.fillStyle="#274b5d";
+  ctx.fillRect(x+7,y+28,4,12);
+  ctx.fillStyle="#b9e8f5";
+  ctx.fillRect(x+2,y+16,8,2);ctx.fillRect(x+15,y+16,8,2);
+}
+
+function drawAnimal(a){
+  const x=Math.round(a.x-cameraX),y=Math.round(a.y);
+  ctx.save();
+  if(a.type==="seal"){
+    ctx.fillStyle="#657b86";ctx.fillRect(x+2,y+7,18,9);ctx.fillRect(x+5,y+4,11,9);
+    ctx.fillStyle="#17232b";ctx.fillRect(x+6,y+6,2,2);ctx.fillRect(x+15,y+6,2,2);
+    ctx.fillStyle="#d4e4e8";ctx.fillRect(x+9,y+10,5,2);
+  } else if(a.type==="fox"){
+    ctx.fillStyle="#c96b3d";ctx.fillRect(x+4,y+7,14,15);ctx.fillRect(x+2,y+3,5,7);ctx.fillRect(x+15,y+3,5,7);
+    ctx.fillStyle="#fff1d8";ctx.fillRect(x+8,y+13,8,7);ctx.fillRect(x+7,y+9,3,3);ctx.fillRect(x+14,y+9,3,3);
+    ctx.fillStyle="#241b18";ctx.fillRect(x+8,y+9,2,2);ctx.fillRect(x+15,y+9,2,2);
+  } else {
+    ctx.fillStyle="#f1f4f4";ctx.fillRect(x+3,y+7,15,19);ctx.fillRect(x+5,y+2,11,10);ctx.fillRect(x+3,y+1,4,6);ctx.fillRect(x+14,y+1,4,6);
+    ctx.fillStyle="#1b2529";ctx.fillRect(x+6,y+6,2,2);ctx.fillRect(x+14,y+6,2,2);ctx.fillRect(x+9,y+9,4,2);
+    ctx.fillStyle="#b8cbd1";ctx.fillRect(x+5,y+22,4,5);ctx.fillRect(x+13,y+22,4,5);
+  }
+  ctx.restore();
+}
+
+function drawPlayer(){
+  if(player.inv>0 && Math.floor(player.inv/5)%2===0) return;
+  const x=Math.round(player.x-cameraX), y=Math.round(player.y);
+  const step=(player.frame%2===0)?0:1;
+  ctx.save();
+  // tênis pretos
+  ctx.fillStyle="#20252a";
+  ctx.fillRect(x+1,y+25,7,3); ctx.fillRect(x+9,y+25,7,3);
+  ctx.fillStyle="#d7d9d8";
+  ctx.fillRect(x+1,y+28,7,1); ctx.fillRect(x+9,y+28,7,1);
+  // jeans azuis
+  ctx.fillStyle="#274f7a";
+  ctx.fillRect(x+3,y+16,5,10-step);
+  ctx.fillRect(x+9,y+16,5,10+step);
+  ctx.fillStyle="#35648f";
+  ctx.fillRect(x+4,y+17,3,7); ctx.fillRect(x+10,y+17,3,7);
+  // camiseta preta e barriga
+  ctx.fillStyle="#252525";
+  ctx.fillRect(x+2,y+8,12,10);
+  ctx.fillStyle="#353535";
+  ctx.fillRect(x+4,y+9,8,7);
+  // braços
+  ctx.fillStyle="#d88958";
+  ctx.fillRect(x,y+9,3,9-step); ctx.fillRect(x+13,y+9,3,9+step);
+  // pescoço
+  ctx.fillRect(x+6,y+7,4,3);
+  // cabeça arredondada pixel-art
+  ctx.fillStyle="#e6a06b";
+  ctx.fillRect(x+3,y+1,10,10);
+  ctx.fillRect(x+2,y+3,12,6);
+  // laterais de cabelo bem curto + topo careca
+  ctx.fillStyle="#2c201c";
+  ctx.fillRect(x+2,y+1,3,5);
+  ctx.fillRect(x+11,y+1,3,5);
+  ctx.fillRect(x+4,y,7,2);
+  // orelhas
+  ctx.fillStyle="#d88958";
+  ctx.fillRect(x+1,y+4,2,4); ctx.fillRect(x+13,y+4,2,4);
+  // olhos
+  ctx.fillStyle="#171313";
+  ctx.fillRect(x+5,y+5,2,2); ctx.fillRect(x+10,y+5,2,2);
+  // nariz
+  ctx.fillStyle="#c96f4f"; ctx.fillRect(x+8,y+7,2,2);
+  // barba e bigode
+  ctx.fillStyle="#2b201c";
+  ctx.fillRect(x+5,y+8,7,3);
+  ctx.fillRect(x+6,y+10,5,2);
+  // bochechas
+  ctx.fillStyle="#ef7e72";
+  ctx.fillRect(x+3,y+8,2,2); ctx.fillRect(x+12,y+8,2,2);
+  ctx.restore();
+}
+
+function drawSnowParticles(){
+  for(let i=0;i<50;i++){
+    const x=(i*73-cameraX*0.25)%W;
+    const y=(i*31+performance.now()/40*(i%3+1))%H;
+    ctx.fillStyle="#fff9";ctx.fillRect((x+W)%W,y,1,1);
+  }
+}
+
+function draw(){
+  drawSky();
+  ctx.save();
+  for(const p of platforms)drawPlatform(p);
+  drawWater();
+  drawIgloo();
+  for(const a of animals)drawAnimal(a);
+  drawPlayer();
+  drawSnowParticles();
+  ctx.restore();
+
+  if(state==="title"){
+    ctx.fillStyle="#0008";ctx.fillRect(0,0,W,H);
+    ctx.fillStyle="#fff";ctx.textAlign="center";
+    ctx.font="bold 18px monospace";ctx.fillText("MARCELO NO ALASCA",W/2,58);
+    ctx.font="10px monospace";ctx.fillText("16-BIT ICE ADVENTURE",W/2,73);
+    ctx.font="9px monospace";ctx.fillText("Atravesse as pedras de gelo e chegue ao iglu.",W/2,92);
+    ctx.fillText("Cuidado: água e animais tiram uma vida.",W/2,105);
+    ctx.fillText("ENTER ou ▲ para começar",W/2,127);
+    ctx.textAlign="left";
+  }
+}
+
+function loop(t){
+  const dt=Math.min(32,t-last||16);last=t;
+  update(dt);draw();requestAnimationFrame(loop);
+}
+
+function beep(freq,dur,type){
+  try{
+    const AC=window.AudioContext||window.webkitAudioContext;
+    if(!window._ac)window._ac=new AC();
+    const o=window._ac.createOscillator(),g=window._ac.createGain();
+    o.type=type;o.frequency.value=freq;g.gain.value=.035;
+    o.connect(g);g.connect(window._ac.destination);o.start();
+    g.gain.exponentialRampToValueAtTime(.001,window._ac.currentTime+dur);
+    o.stop(window._ac.currentTime+dur);
+  }catch(e){}
+}
+
+window.addEventListener("keydown",e=>{
+  keys[e.key]=true;
+  if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," ","Enter"].includes(e.key))e.preventDefault();
+  if(e.key==="Enter"){
+    if(state==="title")startGame();
+    else if(state!=="play")continueAfterDeath();
+  }
+  if(e.key==="b"||e.key==="B") action();
+  if(e.key==="r"||e.key==="R"){if(state==="play")resetLevel();}
+});
+window.addEventListener("keyup",e=>keys[e.key]=false);
+
+function bindTouch(id,key){
+  const el=document.getElementById(id);
+  const down=e=>{e.preventDefault();keys[key]=true;if(key===" ")jump();};
+  const up=e=>{e.preventDefault();keys[key]=false;};
+  ["pointerdown","touchstart"].forEach(ev=>el.addEventListener(ev,down,{passive:false}));
+  ["pointerup","pointercancel","pointerleave","touchend"].forEach(ev=>el.addEventListener(ev,up,{passive:false}));
+}
+bindTouch("left","ArrowLeft");
+bindTouch("right","ArrowRight");
+bindTouch("up","ArrowUp");
+bindTouch("down","ArrowDown");
+document.getElementById("jump").addEventListener("pointerdown",e=>{e.preventDefault();e.currentTarget.classList.add("pressed");jump()});
+document.getElementById("jump").addEventListener("pointerup",e=>e.currentTarget.classList.remove("pressed"));
+document.getElementById("jump").addEventListener("pointercancel",e=>e.currentTarget.classList.remove("pressed"));
+document.getElementById("action").addEventListener("pointerdown",e=>{e.preventDefault();e.currentTarget.classList.add("pressed");action()});
+document.getElementById("action").addEventListener("pointerup",e=>e.currentTarget.classList.remove("pressed"));
+document.getElementById("action").addEventListener("pointercancel",e=>e.currentTarget.classList.remove("pressed"));
+
+async function toggleFullscreen(){
+  try{
+    if(!document.fullscreenElement){
+      await document.documentElement.requestFullscreen();
+    }else{
+      await document.exitFullscreen();
+    }
+  }catch(e){}
+}
+document.getElementById("fsBtn").addEventListener("click",toggleFullscreen);
+document.getElementById("fsBtn").addEventListener("touchend",e=>{e.preventDefault();toggleFullscreen()});
+
+resetLevel();
+showPanel("MARCELO NO ALASCA","← → para andar • A/▲ pula • B acelera<br><br>Celular: vire na horizontal e toque em ⛶ para tela cheia.<br><br>Chegue ao iglu sem cair na água e sem tocar nos animais.","COMEÇAR");
+state="title";
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
