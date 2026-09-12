@@ -68,13 +68,12 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 ctx.imageSmoothingEnabled = false;
 
-// Processador de Imagem Transparente
+// Processamento de Imagens sem fundo branco
 let processedPlayerSprite = null;
 const rawPlayerSprite = new Image(); 
 rawPlayerSprite.src = "avatar-reference.jpg";
 
 rawPlayerSprite.onload = () => {
-  // Cria um canvas oculto para remover o fundo branco automaticamente
   const offCanvas = document.createElement("canvas");
   offCanvas.width = rawPlayerSprite.width;
   offCanvas.height = rawPlayerSprite.height;
@@ -84,10 +83,10 @@ rawPlayerSprite.onload = () => {
   const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height);
   const data = imgData.data;
 
-  // Transforma pixels brancos/claros em transparentes
+  // Filtro de Transparência Automática para Fundos Brancos
   for (let i = 0; i < data.length; i += 4) {
-    if (data[i] > 240 && data[i+1] > 240 && data[i+2] > 240) {
-      data[i+3] = 0; // Transparência total
+    if (data[i] > 235 && data[i+1] > 235 && data[i+2] > 235) {
+      data[i+3] = 0;
     }
   }
   offCtx.putImageData(imgData, 0, 0);
@@ -114,7 +113,7 @@ let globalTimer = 0;
 let audioCtx = null;
 
 const player = {
-  x: 22, y: 100, w: 22, h: 32,
+  x: 22, y: 100, w: 20, h: 28,
   vx: 0, vy: 0,
   grounded: false,
   facing: 1,
@@ -150,6 +149,12 @@ function playSound(type) {
       gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
       gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.22);
       osc.start(); osc.stop(audioCtx.currentTime + 0.22);
+    } else if (type === "stomp") {
+      osc.type = "triangle"; osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+      osc.frequency.linearRampToValueAtTime(100, audioCtx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      osc.start(); osc.stop(audioCtx.currentTime + 0.1);
     } else if (type === "hurt") {
       osc.type = "sawtooth"; osc.frequency.setValueAtTime(100, audioCtx.currentTime);
       osc.frequency.linearRampToValueAtTime(30, audioCtx.currentTime + 0.3);
@@ -179,10 +184,10 @@ const levels = [
       [1740,150,35,30],[1885,150,25,30],[2005,150,35,30]
     ],
     animals: [
-      { type: "seal", x: 380, y: 96, w: 22, h: 14, min: 350, max: 410, dir: 1 },
-      { type: "polar", x: 820, y: 64, w: 28, h: 28, min: 810, max: 895, dir: 1 },
-      { type: "seal", x: 1120, y: 88, w: 22, h: 14, min: 1080, max: 1175, dir: -1 },
-      { type: "fox", x: 1515, y: 65, w: 22, h: 16, min: 1490, max: 1575, dir: 1 }
+      { type: "seal", x: 380, y: 110, w: 22, h: 14, min: 350, max: 410, dir: 1, alive: true },
+      { type: "polar", x: 820, y: 64, w: 26, h: 28, min: 810, max: 895, dir: 1, alive: true },
+      { type: "seal", x: 1120, y: 88, w: 22, h: 14, min: 1080, max: 1175, dir: -1, alive: true },
+      { type: "fox", x: 1515, y: 74, w: 22, h: 16, min: 1490, max: 1575, dir: 1, alive: true }
     ],
     crystals: [
       {x: 250, y: 90, caught: false}, {x: 360, y: 80, caught: false}, {x: 600, y: 70, caught: false},
@@ -251,6 +256,7 @@ function update() {
     }
   }
 
+  // Animação do Marcelo
   player.animTimer++;
   if (!player.grounded) {
     player.animIndex = 4 + Math.floor((player.animTimer / 8) % 4);
@@ -260,19 +266,35 @@ function update() {
     player.animIndex = Math.floor((player.animTimer / 12) % 4);
   }
 
+  // Estrelas Bônus
   crystals.forEach(c => {
-    if (!c.caught && player.x < c.x + 12 && player.x + player.w > c.x &&
-        player.y < c.y + 12 && player.y + player.h > c.y) {
+    if (!c.caught && player.x < c.x + 14 && player.x + player.w > c.x &&
+        player.y < c.y + 14 && player.y + player.h > c.y) {
       c.caught = true; score += 100; updateHUD(); playSound("coin");
     }
   });
 
+  // Inimigos + Mecânica de Pular em cima (Stomp)
   for (let a of animals) {
+    if (!a.alive) continue;
+
     a.x += a.dir * 0.8;
     if (a.x < a.min || a.x > a.max) a.dir *= -1;
+
+    // Colisão com o Inimigo
     if (player.x < a.x + a.w && player.x + player.w > a.x &&
         player.y < a.y + a.h && player.y + player.h > a.y) {
-      playerHurt();
+
+      // Se o jogador estiver caindo em cima do inimigo (Pulo do Mário)
+      if (player.vy > 0 && player.y + player.h - player.vy <= a.y + 8) {
+        a.alive = false; // Elimina o inimigo
+        player.vy = JUMP * 0.7;5 // Impulso para cima
+        score += 200;
+        updateHUD();
+        playSound("stomp");
+      } else {
+        playerHurt(); // Dano lateral ou por baixo
+      }
     }
   }
 
@@ -304,7 +326,7 @@ function restartGame() {
   lives = 3; score = 0; levelIndex = 0; updateHUD(); state = "play"; loadLevel(0);
 }
 
-// RENDERIZAÇÃO DO PERSONAGEM (SEM O TEXTO/NÚMEROS)
+// RENDERIZADOR PERFEITO DO MARCELO (SEM NÚMEROS E SEM BUG DE RECORTE)
 function drawMarcelo() {
   if (processedPlayerSprite) {
     const cols = 4;
@@ -314,11 +336,11 @@ function drawMarcelo() {
     const frameW = processedPlayerSprite.width / 4;
     const frameH = processedPlayerSprite.height / 4;
 
-    // Margens para ignorar os textos do topo/baixo da imagem original
-    const cropX = col * frameW + (frameW * 0.15);
-    const cropY = row * frameH + (frameH * 0.22);
-    const cropW = frameW * 0.7;
-    const cropH = frameH * 0.65;
+    // Corte ultra preciso apenas no corpo do personagem (Descarta textos)
+    const cropX = col * frameW + (frameW * 0.20);
+    const cropY = row * frameH + (frameH * 0.26);
+    const cropW = frameW * 0.60;
+    const cropH = frameH * 0.58;
 
     ctx.save();
     ctx.translate(player.x + player.w / 2, player.y + player.h / 2);
@@ -332,54 +354,54 @@ function drawMarcelo() {
 }
 
 function drawPlatform(p) {
-  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
-    ctx.drawImage(tileSprite, 0, 0, tileSprite.width/2, tileSprite.height/2, p.x, p.y, p.w, p.h);
-  } else {
-    ctx.fillStyle = "#a8e0f0"; ctx.fillRect(p.x, p.y, p.w, p.h);
-    ctx.fillStyle = "#6cb0d8"; ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(p.x - 1, p.y, p.w + 2, 4);
+  // Plataformas de Neve Texturizadas
+  ctx.fillStyle = "#a8e0f0"; ctx.fillRect(p.x, p.y, p.w, p.h);
+  ctx.fillStyle = "#6cb0d8"; ctx.fillRect(p.x, p.y + p.h - 3, p.w, 3);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(p.x - 1, p.y, p.w + 2, 4);
+  ctx.fillStyle = "#d9f2fa";
+  for(let i = 0; i < p.w; i += 12) {
+    ctx.fillRect(p.x + i, p.y + 4, 6, 2);
   }
 }
 
 function drawWater(w) {
-  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
-    ctx.drawImage(tileSprite, tileSprite.width/2, 0, tileSprite.width/2, tileSprite.height/2, w.x, w.y, w.w, w.h);
-  } else {
-    ctx.fillStyle = "#1b4965"; ctx.fillRect(w.x, w.y, w.w, w.h);
-    ctx.fillStyle = "#62b6cb";
-    for (let i = 0; i < w.w; i += 6) {
-      let waveY = Math.sin((globalTimer + i) * 0.1) * 2;
-      ctx.fillRect(w.x + i, w.y + 1 + waveY, 4, 2);
-    }
+  ctx.fillStyle = "#1b4965"; ctx.fillRect(w.x, w.y, w.w, w.h);
+  ctx.fillStyle = "#62b6cb";
+  for (let i = 0; i < w.w; i += 6) {
+    let waveY = Math.sin((globalTimer + i) * 0.1) * 2;
+    ctx.fillRect(w.x + i, w.y + 1 + waveY, 4, 2);
   }
 }
 
-function drawCrystal(c) {
+// ESTRELA DE BÔNUS EM PIXEL ART DETALHADA
+function drawStar(c) {
   if (c.caught) return;
-  let bounce = Math.sin(globalTimer * 0.1) * 2;
-  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
-    ctx.drawImage(tileSprite, 0, tileSprite.height/2, tileSprite.width/2, tileSprite.height/2, c.x, c.y + bounce, 12, 12);
-  } else {
-    let cx = c.x, cy = c.y + bounce;
-    ctx.fillStyle = "#e0ffff";
-    ctx.beginPath(); ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + 8, cy + 5); ctx.lineTo(cx + 4, cy + 10); ctx.lineTo(cx, cy + 5); ctx.fill();
-    ctx.fillStyle = "#00b4d8"; ctx.fillRect(cx + 3, cy + 3, 2, 4);
-  }
+  let bounce = Math.sin(globalTimer * 0.15) * 2.5;
+  let sx = c.x, sy = c.y + bounce;
+
+  // Brilho Externo Dourado
+  ctx.fillStyle = "#ffd700";
+  ctx.fillRect(sx + 5, sy, 4, 14);
+  ctx.fillRect(sx, sy + 5, 14, 4);
+  ctx.fillRect(sx + 3, sy + 3, 8, 8);
+
+  // Centro Brilhante Amarelo Claro
+  ctx.fillStyle = "#fffae0";
+  ctx.fillRect(sx + 6, sy + 2, 2, 10);
+  ctx.fillRect(sx + 2, sy + 6, 10, 2);
 }
 
 function drawGoal(g) {
-  if (tileSprite.complete && tileSprite.naturalWidth !== 0) {
-    ctx.drawImage(tileSprite, tileSprite.width/2, tileSprite.height/2, tileSprite.width/2, tileSprite.height/2, g.x, g.y, g.w, g.h);
-  } else {
-    ctx.fillStyle = "#e0f7fa";
-    ctx.beginPath(); ctx.arc(g.x + 16, g.y + 30, 18, Math.PI, 0, false); ctx.fill();
-    ctx.fillStyle = "#101820"; ctx.fillRect(g.x + 10, g.y + 18, 12, 14);
-    ctx.fillStyle = "#ff4d6d"; ctx.fillRect(g.x + 22, g.y - 10, 10, 7);
-    ctx.fillStyle = "#ffffff"; ctx.fillRect(g.x + 20, g.y - 12, 2, 20);
-  }
+  ctx.fillStyle = "#e0f7fa";
+  ctx.beginPath(); ctx.arc(g.x + 16, g.y + 30, 18, Math.PI, 0, false); ctx.fill();
+  ctx.fillStyle = "#101820"; ctx.fillRect(g.x + 10, g.y + 18, 12, 14);
+  ctx.fillStyle = "#ff4d6d"; ctx.fillRect(g.x + 22, g.y - 10, 10, 7);
+  ctx.fillStyle = "#ffffff"; ctx.fillRect(g.x + 20, g.y - 12, 2, 20);
 }
 
 function drawAnimals(a) {
+  if (!a.alive) return;
+
   ctx.save();
   ctx.translate(a.x + a.w / 2, a.y + a.h / 2);
   if (a.dir === -1) ctx.scale(-1, 1);
@@ -412,6 +434,7 @@ function render() {
   ctx.fillStyle = "#87c9ef";
   ctx.fillRect(0, 0, W, H);
 
+  // Montanhas Parallax no fundo
   ctx.fillStyle = "#b0e0e6";
   ctx.beginPath();
   ctx.moveTo(0 - cameraX * 0.2, H);
@@ -425,7 +448,7 @@ function render() {
 
   waters.forEach(drawWater);
   platforms.forEach(drawPlatform);
-  crystals.forEach(drawCrystal);
+  crystals.forEach(drawStar);
   if (goal) drawGoal(goal);
   animals.forEach(drawAnimals);
 
